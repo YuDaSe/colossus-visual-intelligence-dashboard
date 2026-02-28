@@ -6,7 +6,6 @@ import {
   createChart,
   CandlestickSeries,
   IChartApi,
-  LineSeries,
   OhlcData,
 } from "lightweight-charts";
 import { SENTIMENTS, CHART_COLORS } from "../constants";
@@ -14,10 +13,7 @@ import {
   mapNewsSentimentsToRectangleMarkers,
   mapTradeAdviceToRectangleMarkers,
 } from "@/utils/mappers";
-import {
-  RectangleSeriesPrimitive,
-  CoordinateConverters,
-} from "./primitives/RectangleSeriesPrimitive";
+import { RectangleSeriesPrimitive } from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 
 export interface TradeSetupAdvice {
@@ -83,16 +79,6 @@ const ColossusChart = ({
 
     candlestickSeries.setData(candles);
 
-    const lineSeries = chart.addSeries(LineSeries);
-    const timeScale = chart.timeScale();
-
-    // Create coordinate converters
-    const coordinateConverters: CoordinateConverters = {
-      priceToCoordinate:
-        candlestickSeries.priceToCoordinate.bind(candlestickSeries),
-      timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
-    };
-
     // Map sentiment data to rectangle markers
     const sentimentMarkers = mapNewsSentimentsToRectangleMarkers(
       newsSentiments,
@@ -106,17 +92,15 @@ const ColossusChart = ({
     // Create and attach sentiment markers primitive
     const sentimentMarkersSeriesPrimitive = new RectangleSeriesPrimitive(
       sentimentMarkers,
-      coordinateConverters,
     );
 
     // Create and attach trade advice markers primitive
     const tradeAdviceSeriesPrimitive = new RectangleSeriesPrimitive(
       tradeAdviceMarkers,
-      coordinateConverters,
     );
 
-    lineSeries.attachPrimitive(sentimentMarkersSeriesPrimitive);
-    lineSeries.attachPrimitive(tradeAdviceSeriesPrimitive);
+    candlestickSeries.attachPrimitive(sentimentMarkersSeriesPrimitive);
+    candlestickSeries.attachPrimitive(tradeAdviceSeriesPrimitive);
 
     chart.timeScale().fitContent();
   });

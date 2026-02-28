@@ -3,6 +3,8 @@ import {
   UTCTimestamp,
   Time,
   IPrimitivePaneRenderer,
+  IPrimitivePaneView,
+  SeriesAttachedParameter,
 } from "lightweight-charts";
 
 /**
@@ -21,14 +23,6 @@ export interface RectangleMarker {
 }
 
 /**
- * Coordinate conversion functions provided by the chart
- */
-export interface CoordinateConverters {
-  priceToCoordinate: (price: number) => number | null;
-  timeToCoordinate: (time: UTCTimestamp) => number | null;
-}
-
-/**
  * Internal representation of a rectangle with converted coordinates
  */
 interface ConvertedRectangle {
@@ -44,27 +38,32 @@ interface ConvertedRectangle {
  */
 class RectangleRenderer implements IPrimitivePaneRenderer {
   private rectangleData: RectangleMarker[];
-  private converters: CoordinateConverters;
+  private series: SeriesAttachedParameter<Time> | null = null;
 
-  constructor(
-    rectangleData: RectangleMarker[],
-    converters: CoordinateConverters,
-  ) {
+  constructor(rectangleData: RectangleMarker[]) {
     this.rectangleData = rectangleData;
-    this.converters = converters;
+  }
+
+  setSeries(series: SeriesAttachedParameter<Time>) {
+    this.series = series;
   }
 
   draw(target: Parameters<IPrimitivePaneRenderer["draw"]>[0]) {
+    if (!this.series) return;
+
     target.useBitmapCoordinateSpace((scope) => {
       const { context, horizontalPixelRatio, verticalPixelRatio } = scope;
+
+      // Get fresh coordinate converters on each render
+      const timeScale = this.series!.chart.timeScale();
 
       // Convert marker coordinates to canvas coordinates
       const convertedRectangles = this.rectangleData.map(
         (marker: RectangleMarker) => ({
-          x1: this.converters.timeToCoordinate(marker.p1.time),
-          y1: this.converters.priceToCoordinate(marker.p1.price),
-          x2: this.converters.timeToCoordinate(marker.p2.time),
-          y2: this.converters.priceToCoordinate(marker.p2.price),
+          x1: timeScale.timeToCoordinate(marker.p1.time),
+          y1: this.series!.series.priceToCoordinate(marker.p1.price),
+          x2: timeScale.timeToCoordinate(marker.p2.time),
+          y2: this.series!.series.priceToCoordinate(marker.p2.price),
           color: marker.color,
         }),
       );
@@ -103,38 +102,78 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
 }
 
 /**
+ * Pane view for rectangle rendering
+ */
+class RectanglePaneView implements IPrimitivePaneView {
+  private _renderer: RectangleRenderer;
+
+  constructor(rectangleData: RectangleMarker[]) {
+    this._renderer = new RectangleRenderer(rectangleData);
+  }
+
+  update(series: SeriesAttachedParameter<Time>) {
+    this._renderer.setSeries(series);
+  }
+
+  zOrder(): "bottom" | "normal" | "top" {
+    return "bottom";
+  }
+
+  renderer(): IPrimitivePaneRenderer {
+    return this._renderer;
+  }
+}
+
+/**
  * Primitive that renders a series of rectangles on the chart
  * Implements the ISeriesPrimitive interface for lightweight-charts
  */
 export class RectangleSeriesPrimitive implements ISeriesPrimitive<Time> {
-  private rectangleData: RectangleMarker[];
-  private converters: CoordinateConverters;
+  private paneView: RectanglePaneView;
+  private attachedSeries: SeriesAttachedParameter<Time> | null = null;
 
-  constructor(
-    rectangleData: RectangleMarker[],
-    converters: CoordinateConverters,
-  ) {
-    this.rectangleData = rectangleData;
-    this.converters = converters;
+  constructor(rectangleData: RectangleMarker[]) {
+    this.paneView = new RectanglePaneView(rectangleData);
   }
 
   /**
-   * Update all views - required by ISeriesPrimitive interface
+   * Called when the primitive is attached to a series
+   */
+  attached(param: SeriesAttachedParameter<Time>): void {
+    this.attachedSeries = param;
+    this.paneView.update(param);
+  }
+
+  /**
+   * Called when the primitive is detached from a series
+   */
+  detached(): void {
+    this.attachedSeries = null;
+  }
+
+  /**
+   * Update data for the rectangle markers
+   */
+  updateData(rectangleData: RectangleMarker[]) {
+    this.paneView = new RectanglePaneView(rectangleData);
+    if (this.attachedSeries) {
+      this.paneView.update(this.attachedSeries);
+    }
+  }
+
+  /**
+   * Update all views - triggers a re-render
    */
   updateAllViews() {
-    // Implementation required by interface but no-op for static rectangles
+    if (this.attachedSeries) {
+      this.paneView.update(this.attachedSeries);
+    }
   }
 
   /**
    * Returns the pane views for rendering
    */
   paneViews() {
-    return [
-      {
-        zOrder: () => "bottom" as const,
-        renderer: () =>
-          new RectangleRenderer(this.rectangleData, this.converters),
-      },
-    ];
+    return [this.paneView];
   }
 }
