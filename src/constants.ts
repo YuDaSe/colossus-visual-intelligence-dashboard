@@ -8,6 +8,9 @@ export const CHART_COLORS = {
   layout: {
     backgroundColor: "#131722",
   },
+  timeScale: {
+    borderColor: "rgba(42, 46, 57, 0.5)",
+  },
   candlestickSeries: {
     [SENTIMENTS.BULLISH]: '22cc66',
     [SENTIMENTS.BEARISH]: 'ff4444',
@@ -37,3 +40,15 @@ export const CANDLE_INTERVALS = {
 };
 
 export const PAIR = 'BTCUSDT';
+
+export const CANDLE_INTERVALS_SECONDS: Record<string, number> = {
+  [CANDLE_INTERVALS.ONE_MINUTE]: 60,
+  [CANDLE_INTERVALS.FIVE_MINUTES]: 5 * 60,
+  [CANDLE_INTERVALS.FIFTEEN_MINUTES]: 15 * 60,
+  [CANDLE_INTERVALS.THIRTY_MINUTES]: 30 * 60,
+  [CANDLE_INTERVALS.ONE_HOUR]: 60 * 60,
+  [CANDLE_INTERVALS.FOUR_HOURS]: 4 * 60 * 60,
+  [CANDLE_INTERVALS.ONE_DAY]: 24 * 60 * 60,
+  [CANDLE_INTERVALS.ONE_WEEK]: 7 * 24 * 60 * 60,
+  [CANDLE_INTERVALS.ONE_MONTH]: 30 * 24 * 60 * 60, // Approximation
+};

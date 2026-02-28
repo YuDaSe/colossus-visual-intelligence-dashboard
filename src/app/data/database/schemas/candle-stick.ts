@@ -1,5 +1,5 @@
 import mongoose, { InferSchemaType } from "mongoose";
-import { CANDLE_INTERVALS } from "../../../constants";
+import { CANDLE_INTERVALS } from "../../../../constants";
 
 const candleStickSchema = new mongoose.Schema(
   {

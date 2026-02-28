@@ -5,12 +5,13 @@ import {
   ColorType,
   createChart,
   CandlestickSeries,
-  ISeriesPrimitive,
   IChartApi,
   LineSeries,
   OhlcData,
 } from "lightweight-charts";
-import { SENTIMENTS, CHART_COLORS } from "./constants";
+import { SENTIMENTS, CHART_COLORS } from "../constants";
+import { getChartTime } from "@/utils/mappers";
+import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 
 // 1. The Renderer: This handles the actual Canvas drawing
 class RectangleRenderer {
@@ -20,7 +21,6 @@ class RectangleRenderer {
 
   draw(target, converter) {
     // console.log("Drawing rectangles with data:", target);
-
 
     target.useBitmapCoordinateSpace((scope) => {
       const { context, horizontalPixelRatio, verticalPixelRatio } = scope;
@@ -40,7 +40,7 @@ class RectangleRenderer {
       const fixedRects = mappedRects.map((rect, index) => {
         const prevRect = mappedRects[index - 1];
         const nextRect = mappedRects[index + 1];
-        
+
         if (rect.x1 === null) {
           rect.x1 = prevRect && prevRect.x2 ? prevRect.x2 : nextRect.x1;
         }
@@ -117,20 +117,23 @@ const ColossusChart = ({
     const chartOptions = {
       grid: {
         vertLines: {
-            color: 'transparent', // Example: a dark gray color
+          color: "transparent", // Example: a dark gray color
         },
         horzLines: {
-            color: 'transparent', // Example: a dark gray color
+          color: "transparent", // Example: a dark gray color
         },
-    },
+      },
       layout: {
         textColor: "white",
-        background: { type: ColorType.Solid, color: CHART_COLORS.layout.backgroundColor },
+        background: {
+          type: ColorType.Solid,
+          color: CHART_COLORS.layout.backgroundColor,
+        },
       },
       timeScale: {
         timeVisible: true, // Essential: Shows the HH:mm:ss
         secondsVisible: false, // Keeps it tidy for 4h intervals
-        borderColor: "rgba(42, 46, 57, 0.5)",
+        borderColor: CHART_COLORS.timeScale.borderColor,
       },
     };
 
@@ -161,20 +164,19 @@ const ColossusChart = ({
         CHART_COLORS.sentimentMarkers[sentiment.sentiment] ||
         CHART_COLORS.sentimentMarkers[SENTIMENTS.NEUTRAL];
 
-      const p1Time = new Date(sentiment.timeRange.start)
+      const p1Time = new Date(sentiment.timeRange.start);
       p1Time.setMinutes(0, 0, 0);
-      const p2Time = new Date(sentiment.timeRange.end)
+      const p2Time = new Date(sentiment.timeRange.end);
       p2Time.setMinutes(0, 0, 0);
 
       return {
-        p1: { 
-          // time: Math.ceil(sentiment.timeRange.start.getTime() / 1000), 
-          time: p1Time.getTime() / 1000, // Align to the hour
-          price: lowestPrice },
-        p2: { 
-          // time: Math.ceil(sentiment.timeRange.end.getTime() / 1000), 
-          time: p2Time.getTime() / 1000, // Align to the hour
-          price: highestPrice 
+        p1: {
+          time: getChartTime(sentiment.timeRange.start),
+          price: lowestPrice,
+        },
+        p2: {
+          time: getChartTime(sentiment.timeRange.end),
+          price: highestPrice,
         },
         color,
       };
@@ -185,44 +187,30 @@ const ColossusChart = ({
         CHART_COLORS.tradeAdviceMarkers[advice.sentiment] ||
         CHART_COLORS.tradeAdviceMarkers[SENTIMENTS.NEUTRAL];
 
-      const p1Time = new Date(advice.startTime * 1000)
-      p1Time.setMinutes(0, 0, 0);
-      const p2Time = new Date(advice.endTime * 1000)
-      p2Time.setMinutes(0, 0, 0);
-
       return {
-        p1: { 
-          // time: advice.startTime,
-          // time: (new Date(advice.startTime * 1000)).toISOString().split('T')[0],
-          time: p1Time.getTime() / 1000, // Align to the hour
-          price: advice.lowBoundaryPrice },
-        p2: { 
-          // time: advice.endTime,
-          // time: (new Date(advice.endTime * 1000)).toISOString().split('T')[0],
-          time: p2Time.getTime() / 1000, // Align to the hour
-          price: advice.hightBoundaryPrice 
+        p1: {
+          time: advice.startTime,
+          price: advice.lowBoundaryPrice,
+        },
+        p2: {
+          time: advice.endTime,
+          price: advice.hightBoundaryPrice,
         },
         color,
       };
     });
-          
-    const myRect = new RectanglePrimitive(
-      sentimentMarkers,
-      {
-        priceToCoordinate:
-          candlestickSeries.priceToCoordinate.bind(candlestickSeries),
-        timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
-      },
-    );
 
-    const myRect2 = new RectanglePrimitive(
-      tradeAdviceMarkers,
-      {
-        priceToCoordinate:
-          candlestickSeries.priceToCoordinate.bind(candlestickSeries),
-        timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
-      },
-    );
+    const myRect = new RectanglePrimitive(sentimentMarkers, {
+      priceToCoordinate:
+        candlestickSeries.priceToCoordinate.bind(candlestickSeries),
+      timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
+    });
+
+    const myRect2 = new RectanglePrimitive(tradeAdviceMarkers, {
+      priceToCoordinate:
+        candlestickSeries.priceToCoordinate.bind(candlestickSeries),
+      timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
+    });
 
     lineSeries.attachPrimitive(myRect);
     lineSeries.attachPrimitive(myRect2);

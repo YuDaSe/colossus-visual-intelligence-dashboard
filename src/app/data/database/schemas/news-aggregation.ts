@@ -1,5 +1,5 @@
 import mongoose, { InferSchemaType } from "mongoose";
-import { SENTIMENTS } from "../../../constants";
+import { SENTIMENTS } from "../../../../constants";
 
 const newsAggregationSchema = new mongoose.Schema({
   newsAnalyzed: {

@@ -5,7 +5,7 @@ import { OhlcData } from "lightweight-charts";
 import NewsAggregationService, {
 } from "./data/database/db-services/news-aggregation-service";
 import GridSetupAdviceService from "./data/database/db-services/grid-setup-advice.service";
-import { PAIR } from "./constants";
+import { PAIR } from "../constants";
 import {
   mapCandlesToOhlc,
   mapGridSetupAdvicesToChart,
