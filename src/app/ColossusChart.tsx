@@ -10,9 +10,7 @@ import {
   LineSeries,
   OhlcData,
 } from "lightweight-charts";
-import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 import { SENTIMENTS, CHART_COLORS } from "./constants";
-
 
 // 1. The Renderer: This handles the actual Canvas drawing
 class RectangleRenderer {

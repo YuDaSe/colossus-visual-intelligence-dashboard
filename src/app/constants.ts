@@ -35,3 +35,5 @@ export const CANDLE_INTERVALS = {
   ONE_WEEK: '1w',
   ONE_MONTH: '1M',
 };
+
+export const PAIR = 'BTCUSDT';

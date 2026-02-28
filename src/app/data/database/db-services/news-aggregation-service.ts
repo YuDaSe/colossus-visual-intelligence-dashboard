@@ -17,7 +17,7 @@ class NewsAggregationService {
     sinceDate.setDate(sinceDate.getDate() - days);
 
     return NewsAggregation.find({ createdAt: { $gte: sinceDate } })
-      .select("sentiment createdAt timeRange")
+      .select("sentiment createdAt timeRange -_id")
       .sort({
         createdAt: -1,
       })
