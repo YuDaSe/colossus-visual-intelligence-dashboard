@@ -97,6 +97,9 @@ const ColossusChart = ({
     // Create and attach trade advice markers primitive
     const tradeAdviceSeriesPrimitive = new RectangleSeriesPrimitive(
       tradeAdviceMarkers,
+      {
+        drawBorderLines: true,
+      }
     );
 
     candlestickSeries.attachPrimitive(sentimentMarkersSeriesPrimitive);

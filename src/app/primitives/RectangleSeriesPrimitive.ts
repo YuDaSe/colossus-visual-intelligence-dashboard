@@ -6,6 +6,7 @@ import {
   IPrimitivePaneView,
   SeriesAttachedParameter,
 } from "lightweight-charts";
+import tinycolor from "tinycolor2";
 
 /**
  * Represents a single rectangle marker with two points and a color
@@ -33,15 +34,24 @@ interface ConvertedRectangle {
   color: string;
 }
 
+export interface RectangleRendererOptions {
+  drawBorderLines?: boolean;
+}
+
 /**
  * Renders multiple rectangle series on the chart canvas
  */
 class RectangleRenderer implements IPrimitivePaneRenderer {
   private rectangleData: RectangleMarker[];
   private series: SeriesAttachedParameter<Time> | null = null;
+  private options: RectangleRendererOptions;
 
-  constructor(rectangleData: RectangleMarker[]) {
+  constructor(
+    rectangleData: RectangleMarker[],
+    options: RectangleRendererOptions,
+  ) {
     this.rectangleData = rectangleData;
+    this.options = options;
   }
 
   setSeries(series: SeriesAttachedParameter<Time>) {
@@ -96,8 +106,44 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
           ((rect.x2 || 0) - (rect.x1 || 0)) * horizontalPixelRatio,
           ((rect.y2 || 0) - (rect.y1 || 0)) * verticalPixelRatio,
         );
+
+        if (this.options.drawBorderLines) {
+          this.drawBorderLine(
+            (rect.x1 || 0) * horizontalPixelRatio,
+            (rect.x2 || 0) * horizontalPixelRatio,
+            (rect.y1 || 0) * verticalPixelRatio,
+            tinycolor(rect.color).setAlpha(0.8).toRgbString(),
+            context,
+          );
+          this.drawBorderLine(
+            (rect.x1 || 0) * horizontalPixelRatio,
+            (rect.x2 || 0) * horizontalPixelRatio,
+            (rect.y2 || 0) * verticalPixelRatio,
+            tinycolor(rect.color).setAlpha(0.8).toRgbString(),
+            context,
+          );
+        }
       });
     });
+  }
+
+  private drawBorderLine(
+    x1: number,
+    x2: number,
+    y1: number,
+    color: string,
+    context: CanvasRenderingContext2D,
+  ) {
+    context.beginPath(); // 1. Start a new path
+    context.moveTo(x1, y1); // 2. Move pen to starting point (x, y)
+    context.lineTo(x2, y1); // 3. Draw a line to the end point (x, y)
+
+    // Styling the line
+    context.strokeStyle = color; // Set the colour
+    context.lineWidth = 2; // Set the thickness
+    context.lineCap = "round"; // Makes the ends look "finished"
+
+    context.stroke();
   }
 }
 
@@ -107,8 +153,11 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
 class RectanglePaneView implements IPrimitivePaneView {
   private _renderer: RectangleRenderer;
 
-  constructor(rectangleData: RectangleMarker[]) {
-    this._renderer = new RectangleRenderer(rectangleData);
+  constructor(
+    rectangleData: RectangleMarker[],
+    options: RectangleRendererOptions,
+  ) {
+    this._renderer = new RectangleRenderer(rectangleData, options);
   }
 
   update(series: SeriesAttachedParameter<Time>) {
@@ -130,10 +179,15 @@ class RectanglePaneView implements IPrimitivePaneView {
  */
 export class RectangleSeriesPrimitive implements ISeriesPrimitive<Time> {
   private paneView: RectanglePaneView;
+  private options: RectangleRendererOptions;
   private attachedSeries: SeriesAttachedParameter<Time> | null = null;
 
-  constructor(rectangleData: RectangleMarker[]) {
-    this.paneView = new RectanglePaneView(rectangleData);
+  constructor(
+    rectangleData: RectangleMarker[],
+    options: RectangleRendererOptions = { drawBorderLines: false },
+  ) {
+    this.paneView = new RectanglePaneView(rectangleData, options);
+    this.options = options;
   }
 
   /**
@@ -155,7 +209,7 @@ export class RectangleSeriesPrimitive implements ISeriesPrimitive<Time> {
    * Update data for the rectangle markers
    */
   updateData(rectangleData: RectangleMarker[]) {
-    this.paneView = new RectanglePaneView(rectangleData);
+    this.paneView = new RectanglePaneView(rectangleData, this.options);
     if (this.attachedSeries) {
       this.paneView.update(this.attachedSeries);
     }
