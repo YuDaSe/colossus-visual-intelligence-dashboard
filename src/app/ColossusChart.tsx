@@ -10,86 +10,15 @@ import {
   OhlcData,
 } from "lightweight-charts";
 import { SENTIMENTS, CHART_COLORS } from "../constants";
-import { getChartTime } from "@/utils/mappers";
+import {
+  mapNewsSentimentsToRectangleMarkers,
+  mapTradeAdviceToRectangleMarkers,
+} from "@/utils/mappers";
+import {
+  RectangleSeriesPrimitive,
+  CoordinateConverters,
+} from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
-
-// 1. The Renderer: This handles the actual Canvas drawing
-class RectangleRenderer {
-  constructor(data) {
-    this._data = data;
-  }
-
-  draw(target, converter) {
-    // console.log("Drawing rectangles with data:", target);
-
-    target.useBitmapCoordinateSpace((scope) => {
-      const { context, horizontalPixelRatio, verticalPixelRatio } = scope;
-
-      // const ctx = scope.context;
-
-      const mappedRects = this._data.rects.map((rectData) => {
-        return {
-          x1: this._data.timeToCoordinate(rectData.p1.time),
-          y1: this._data.priceToCoordinate(rectData.p1.price),
-          x2: this._data.timeToCoordinate(rectData.p2.time),
-          y2: this._data.priceToCoordinate(rectData.p2.price),
-          color: rectData.color,
-        };
-      });
-
-      const fixedRects = mappedRects.map((rect, index) => {
-        const prevRect = mappedRects[index - 1];
-        const nextRect = mappedRects[index + 1];
-
-        if (rect.x1 === null) {
-          rect.x1 = prevRect && prevRect.x2 ? prevRect.x2 : nextRect.x1;
-        }
-
-        if (rect.x2 === null) {
-          rect.x2 = nextRect && nextRect.x1 ? nextRect.x1 : prevRect.x2 + 20;
-        }
-
-        return rect;
-      });
-
-      fixedRects.forEach((rect) => {
-        context.fillStyle = rect.color; //this._fillColor;
-        context.fillRect(
-          rect.x1 * horizontalPixelRatio,
-          rect.y1 * verticalPixelRatio,
-          (rect.x2 - rect.x1) * horizontalPixelRatio,
-          (rect.y2 - rect.y1) * verticalPixelRatio,
-        );
-      });
-    });
-  }
-}
-
-// 2. The Primitive: The bridge between the Chart and the Renderer
-class RectanglePrimitive {
-  constructor(rects, { priceToCoordinate, timeToCoordinate }) {
-    this._rects = rects;
-    this._priceToCoordinate = priceToCoordinate;
-    this._timeToCoordinate = timeToCoordinate;
-  }
-
-  // This method is required by the ISeriesPrimitive interface
-  updateAllViews() {}
-
-  paneViews() {
-    return [
-      {
-        zOrder: () => "bottom",
-        renderer: () =>
-          new RectangleRenderer({
-            rects: this._rects,
-            priceToCoordinate: this._priceToCoordinate,
-            timeToCoordinate: this._timeToCoordinate,
-          }),
-      },
-    ];
-  }
-}
 
 export interface TradeSetupAdvice {
   hightBoundaryPrice: number;
@@ -117,10 +46,10 @@ const ColossusChart = ({
     const chartOptions = {
       grid: {
         vertLines: {
-          color: "transparent", // Example: a dark gray color
+          color: "transparent",
         },
         horzLines: {
-          color: "transparent", // Example: a dark gray color
+          color: "transparent",
         },
       },
       layout: {
@@ -131,8 +60,8 @@ const ColossusChart = ({
         },
       },
       timeScale: {
-        timeVisible: true, // Essential: Shows the HH:mm:ss
-        secondsVisible: false, // Keeps it tidy for 4h intervals
+        timeVisible: true,
+        secondsVisible: false,
         borderColor: CHART_COLORS.timeScale.borderColor,
       },
     };
@@ -145,7 +74,6 @@ const ColossusChart = ({
     const chart = createChart(chartContainer, chartOptions) as IChartApi;
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      // upColor: "#1DCED8",
       upColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BULLISH]}`,
       downColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BEARISH]}`,
       borderVisible: true,
@@ -156,64 +84,39 @@ const ColossusChart = ({
     candlestickSeries.setData(candles);
 
     const lineSeries = chart.addSeries(LineSeries);
-
     const timeScale = chart.timeScale();
 
-    const sentimentMarkers = newsSentiments.map((sentiment) => {
-      const color =
-        CHART_COLORS.sentimentMarkers[sentiment.sentiment] ||
-        CHART_COLORS.sentimentMarkers[SENTIMENTS.NEUTRAL];
-
-      const p1Time = new Date(sentiment.timeRange.start);
-      p1Time.setMinutes(0, 0, 0);
-      const p2Time = new Date(sentiment.timeRange.end);
-      p2Time.setMinutes(0, 0, 0);
-
-      return {
-        p1: {
-          time: getChartTime(sentiment.timeRange.start),
-          price: lowestPrice,
-        },
-        p2: {
-          time: getChartTime(sentiment.timeRange.end),
-          price: highestPrice,
-        },
-        color,
-      };
-    });
-
-    const tradeAdviceMarkers = gridSetupAdvices.map((advice) => {
-      const color =
-        CHART_COLORS.tradeAdviceMarkers[advice.sentiment] ||
-        CHART_COLORS.tradeAdviceMarkers[SENTIMENTS.NEUTRAL];
-
-      return {
-        p1: {
-          time: advice.startTime,
-          price: advice.lowBoundaryPrice,
-        },
-        p2: {
-          time: advice.endTime,
-          price: advice.hightBoundaryPrice,
-        },
-        color,
-      };
-    });
-
-    const myRect = new RectanglePrimitive(sentimentMarkers, {
+    // Create coordinate converters
+    const coordinateConverters: CoordinateConverters = {
       priceToCoordinate:
         candlestickSeries.priceToCoordinate.bind(candlestickSeries),
       timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
-    });
+    };
 
-    const myRect2 = new RectanglePrimitive(tradeAdviceMarkers, {
-      priceToCoordinate:
-        candlestickSeries.priceToCoordinate.bind(candlestickSeries),
-      timeToCoordinate: timeScale.timeToCoordinate.bind(timeScale),
-    });
+    // Map sentiment data to rectangle markers
+    const sentimentMarkers = mapNewsSentimentsToRectangleMarkers(
+      newsSentiments,
+      { lowestPrice, highestPrice },
+    );
 
-    lineSeries.attachPrimitive(myRect);
-    lineSeries.attachPrimitive(myRect2);
+    // Map trade advice data to rectangle markers
+    const tradeAdviceMarkers =
+      mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
+
+    // Create and attach sentiment markers primitive
+    const sentimentMarkersSeriesPrimitive = new RectangleSeriesPrimitive(
+      sentimentMarkers,
+      coordinateConverters,
+    );
+
+    // Create and attach trade advice markers primitive
+    const tradeAdviceSeriesPrimitive = new RectangleSeriesPrimitive(
+      tradeAdviceMarkers,
+      coordinateConverters,
+    );
+
+    lineSeries.attachPrimitive(sentimentMarkersSeriesPrimitive);
+    lineSeries.attachPrimitive(tradeAdviceSeriesPrimitive);
 
     chart.timeScale().fitContent();
   });
