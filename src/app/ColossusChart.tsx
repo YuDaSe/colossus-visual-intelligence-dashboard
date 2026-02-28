@@ -13,6 +13,7 @@ import {
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 import { SENTIMENTS, CHART_COLORS } from "./constants";
 
+
 // 1. The Renderer: This handles the actual Canvas drawing
 class RectangleRenderer {
   constructor(data) {
@@ -100,7 +101,7 @@ export interface TradeSetupAdvice {
   sentiment: string;
 }
 
-const BloodyChart = ({
+const ColossusChart = ({
   candles,
   newsSentiments,
   gridSetupAdvices,
@@ -244,4 +245,4 @@ const BloodyChart = ({
   );
 };
 
-export default BloodyChart;
+export default ColossusChart;

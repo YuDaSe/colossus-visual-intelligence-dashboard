@@ -1,4 +1,4 @@
-import BloodyChart from "./BloodyChart";
+import ColossusChart from "./ColossusChart";
 import { connectToDb } from "./data/database/utils/with-db";
 import CandlesDataService from "./data/database/db-services/candles-data-service";
 import { OhlcData, UTCTimestamp } from "lightweight-charts";
@@ -80,7 +80,7 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <BloodyChart
+      <ColossusChart
         candles={chartCandles}
         newsSentiments={chartNewsSentiments}
         gridSetupAdvices={chartGridSetupAdvices}
