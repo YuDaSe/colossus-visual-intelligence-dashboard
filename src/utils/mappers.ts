@@ -11,17 +11,13 @@ import {
 } from "../constants";
 
 export function mapCandlesToOhlc(candles: TCandleStick[]): OhlcData[] {
-  return candles.map((candle: TCandleStick, index: number) => {
-    const nextCandle = candles[index + 1];
-
+  return candles.map((candle: TCandleStick) => {
     return {
       time: getChartTime(candle.openTime),
       open: parseFloat(candle.openPrice),
       high: parseFloat(candle.highPrice),
       low: parseFloat(candle.lowPrice),
-      close: nextCandle
-        ? parseFloat(nextCandle.openPrice)
-        : parseFloat(candle.closePrice),
+      close: parseFloat(candle.closePrice),
     };
   });
 }
