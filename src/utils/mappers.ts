@@ -53,7 +53,6 @@ export function mapGridSetupAdvicesToChart(
 
 export const getChartTime = (time: Date | number): UTCTimestamp => {
   const date = new Date(time);
-  date.setMinutes(0, 0, 0);
 
   return (date.getTime() / 1000) as UTCTimestamp;
 };
@@ -63,7 +62,7 @@ export const getChartTime = (time: Date | number): UTCTimestamp => {
  */
 export function mapNewsSentimentsToRectangleMarkers(
   newsSentiments: NewsSentiment[],
-  priceRange: { lowestPrice: number; highestPrice: number }
+  priceRange: { lowestPrice: number; highestPrice: number },
 ): RectangleMarker[] {
   return newsSentiments.map((sentiment: NewsSentiment) => {
     const color =
@@ -94,12 +93,13 @@ export function mapTradeAdviceToRectangleMarkers(
     startTime: number;
     endTime: number;
     sentiment: string;
-  }>
+  }>,
 ): RectangleMarker[] {
   return gridSetupAdvices.map((advice) => {
     const color =
-      CHART_COLORS.tradeAdviceMarkers[advice.sentiment as keyof typeof CHART_COLORS.tradeAdviceMarkers] ||
-      CHART_COLORS.tradeAdviceMarkers[SENTIMENTS.NEUTRAL];
+      CHART_COLORS.tradeAdviceMarkers[
+        advice.sentiment as keyof typeof CHART_COLORS.tradeAdviceMarkers
+      ] || CHART_COLORS.tradeAdviceMarkers[SENTIMENTS.NEUTRAL];
 
     return {
       p1: {
@@ -114,4 +114,3 @@ export function mapTradeAdviceToRectangleMarkers(
     };
   });
 }
-

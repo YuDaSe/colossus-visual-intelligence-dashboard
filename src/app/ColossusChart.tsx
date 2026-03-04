@@ -7,13 +7,17 @@ import {
   CandlestickSeries,
   IChartApi,
   OhlcData,
+  UTCTimestamp,
 } from "lightweight-charts";
 import { SENTIMENTS, CHART_COLORS } from "../constants";
 import {
   mapNewsSentimentsToRectangleMarkers,
   mapTradeAdviceToRectangleMarkers,
 } from "@/utils/mappers";
-import { RectangleSeriesPrimitive } from "./primitives/RectangleSeriesPrimitive";
+import {
+  RectangleSeriesPrimitive,
+  RectangleMarker,
+} from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 
 export interface TradeSetupAdvice {
@@ -23,6 +27,39 @@ export interface TradeSetupAdvice {
   endTime: number;
   sentiment: string;
 }
+
+const getGridPoint = (
+  grid: UTCTimestamp[],
+  point: number,
+  pintIndex: number,
+) => {
+  for (let i = 0; i < grid.length - 1; i++) {
+    if (point >= grid[i] && point <= grid[i + 1]) {
+      return grid[i];
+    }
+  }
+
+  return pintIndex === 0 ? grid[0] : grid[grid.length - 1];
+};
+
+const normalizeChartRectangles = (
+  rectangles: RectangleMarker[],
+  timeGrid: UTCTimestamp[],
+): RectangleMarker[] => {
+  return rectangles.map((marker, index) => {
+    return {
+      ...marker,
+      p1: {
+        ...marker.p1,
+        time: getGridPoint(timeGrid, marker.p1.time, index),
+      },
+      p2: {
+        ...marker.p2,
+        time: getGridPoint(timeGrid, marker.p2.time, index),
+      },
+    };
+  });
+};
 
 const ColossusChart = ({
   candles,
@@ -36,6 +73,7 @@ const ColossusChart = ({
   useEffect(() => {
     const lowestPrice = Math.min(...candles.map((c) => c.low)) * 0.9;
     const highestPrice = Math.max(...candles.map((c) => c.high)) * 1.1;
+    const timeGrid = candles.map((c) => c.time) as UTCTimestamp[];
 
     const chartContainer = document.getElementById("chart-test");
 
@@ -89,17 +127,43 @@ const ColossusChart = ({
     const tradeAdviceMarkers =
       mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
 
+    const normalizedSentimentMarkers = normalizeChartRectangles(
+      sentimentMarkers,
+      timeGrid,
+    );
+
     // Create and attach sentiment markers primitive
     const sentimentMarkersSeriesPrimitive = new RectangleSeriesPrimitive(
-      sentimentMarkers,
+      normalizedSentimentMarkers,
     );
+
+    const normalizedTradeAdviceMarkers = normalizeChartRectangles(
+      tradeAdviceMarkers,
+      timeGrid,
+    );
+
+    // tradeAdviceMarkers.map(
+    //   (marker, index) => {
+    //     return {
+    //       ...marker,
+    //       p1: {
+    //         ...marker.p1,
+    //         time: getGridPoint(timeGrid, marker.p1.time, index),
+    //       },
+    //       p2: {
+    //         ...marker.p2,
+    //         time: getGridPoint(timeGrid, marker.p2.time, index),
+    //       },
+    //     };
+    //   },
+    // );
 
     // Create and attach trade advice markers primitive
     const tradeAdviceSeriesPrimitive = new RectangleSeriesPrimitive(
-      tradeAdviceMarkers,
+      normalizedTradeAdviceMarkers,
       {
         drawBorderLines: true,
-      }
+      },
     );
 
     candlestickSeries.attachPrimitive(sentimentMarkersSeriesPrimitive);

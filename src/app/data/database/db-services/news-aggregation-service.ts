@@ -19,7 +19,7 @@ class NewsAggregationService {
     return NewsAggregation.find({ createdAt: { $gte: sinceDate } })
       .select("sentiment createdAt timeRange -_id")
       .sort({
-        createdAt: -1,
+        createdAt: 1,
       })
       .lean();
   }
