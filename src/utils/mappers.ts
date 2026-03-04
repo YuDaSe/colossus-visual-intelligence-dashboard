@@ -119,7 +119,7 @@ export function mapTradeAdviceToRectangleMarkers(
 export const getGridPoint = (
   grid: UTCTimestamp[],
   point: number,
-  pintIndex: number,
+  pointIndex: number,
 ): UTCTimestamp => {
   let left = 0;
   let right = grid.length - 1;
@@ -137,7 +137,7 @@ export const getGridPoint = (
   }
 
   if (result === null) {
-    return pintIndex === 0 ? grid[0] : grid[grid.length - 1];
+    return pointIndex === 0 ? grid[0] : grid[grid.length - 1];
   }
 
   return result;

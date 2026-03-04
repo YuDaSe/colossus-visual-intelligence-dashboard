@@ -15,9 +15,7 @@ import {
   mapTradeAdviceToRectangleMarkers,
   normalizeChartRectangles,
 } from "@/utils/mappers";
-import {
-  RectangleSeriesPrimitive,
-} from "./primitives/RectangleSeriesPrimitive";
+import { RectangleSeriesPrimitive } from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 
 export interface TradeSetupAdvice {
@@ -42,7 +40,7 @@ const ColossusChart = ({
     const highestPrice = Math.max(...candles.map((c) => c.high)) * 1.1;
     const timeGrid = candles.map((c) => c.time) as UTCTimestamp[];
 
-    const chartContainer = document.getElementById("chart-test");
+    const chartContainer = document.getElementById("colossus-chart");
 
     const chartOptions = {
       grid: {
@@ -121,12 +119,16 @@ const ColossusChart = ({
     candlestickSeries.attachPrimitive(tradeAdviceSeriesPrimitive);
 
     chart.timeScale().fitContent();
-  });
+
+    return () => {
+      chart.remove();
+    };
+  }, [candles, newsSentiments, gridSetupAdvices]);
 
   return (
     <div className="bloody-chart">
       <div
-        id="chart-test"
+        id="colossus-chart"
         style={{
           height: "100vh",
           width: "100vw",

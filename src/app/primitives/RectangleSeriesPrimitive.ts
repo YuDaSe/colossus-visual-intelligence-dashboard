@@ -78,10 +78,8 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
         }),
       );
 
-      const fixedRectangles = convertedRectangles;
-
       // Draw rectangles on canvas
-      fixedRectangles.forEach((rect: ConvertedRectangle) => {
+      convertedRectangles.forEach((rect: ConvertedRectangle) => {
         context.fillStyle = rect.color;
         context.fillRect(
           (rect.x1 || 0) * horizontalPixelRatio,
