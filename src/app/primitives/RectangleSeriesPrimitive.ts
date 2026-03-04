@@ -5,7 +5,6 @@ import {
   IPrimitivePaneRenderer,
   IPrimitivePaneView,
   SeriesAttachedParameter,
-  MismatchDirection,
 } from "lightweight-charts";
 import tinycolor from "tinycolor2";
 
@@ -68,56 +67,16 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
       // Get fresh coordinate converters on each render
       const timeScale = this.series!.chart.timeScale();
 
-      console.log('convertedRectangles before >>', this.rectangleData);
-
       // Convert marker coordinates to canvas coordinates
       const convertedRectangles = this.rectangleData.map(
         (marker: RectangleMarker) => ({
           x1: timeScale.timeToCoordinate(marker.p1.time),
-          // x1: getNeerestValidTimeCoordinate(this.series!, marker.p1.time),
           y1: this.series!.series.priceToCoordinate(marker.p1.price),
           x2: timeScale.timeToCoordinate(marker.p2.time),
-          // x2: getNeerestValidTimeCoordinate(this.series!, marker.p2.time),
           y2: this.series!.series.priceToCoordinate(marker.p2.price),
           color: marker.color,
         }),
       );
-
-      const lastRectangleData = this.rectangleData[this.rectangleData.length - 1];
-
-      // console.log(
-      //   'lastRectangleData >>', 
-      //   lastRectangleData, 
-      //   timeScale.timeToCoordinate(lastRectangleData.p1.time),
-      //   this.series?.series.dataByIndex(lastRectangleData.p1.time, MismatchDirection.NearestLeft),
-      // );
-
-
-
-
-
-
-      // console.log('convertedRectangles after >>', convertedRectangles);
-
-      // Handle null coordinates by interpolating with adjacent rectangles
-      // const fixedRectangles = convertedRectangles.map(
-      //   (rect: ConvertedRectangle, index: number) => {
-      //     const prevRect = convertedRectangles[index - 1];
-      //     const nextRect = convertedRectangles[index + 1];
-
-      //     if (rect.x1 === null) {
-      //       rect.x1 = prevRect && prevRect.x2 ? prevRect.x2 : nextRect?.x1 || 0;
-      //     }
-
-      //     if (rect.x2 === null) {
-      //       rect.x2 =
-      //         nextRect && nextRect.x1 ? nextRect.x1 : (prevRect?.x2 || 0) + 20;
-      //     }
-
-      //     return rect;
-      //   },
-      // );
-
 
       const fixedRectangles = convertedRectangles;
 

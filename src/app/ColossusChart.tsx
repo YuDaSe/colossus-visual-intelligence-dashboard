@@ -13,10 +13,10 @@ import { SENTIMENTS, CHART_COLORS } from "../constants";
 import {
   mapNewsSentimentsToRectangleMarkers,
   mapTradeAdviceToRectangleMarkers,
+  normalizeChartRectangles,
 } from "@/utils/mappers";
 import {
   RectangleSeriesPrimitive,
-  RectangleMarker,
 } from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
 
@@ -27,39 +27,6 @@ export interface TradeSetupAdvice {
   endTime: number;
   sentiment: string;
 }
-
-const getGridPoint = (
-  grid: UTCTimestamp[],
-  point: number,
-  pintIndex: number,
-) => {
-  for (let i = 0; i < grid.length - 1; i++) {
-    if (point >= grid[i] && point <= grid[i + 1]) {
-      return grid[i];
-    }
-  }
-
-  return pintIndex === 0 ? grid[0] : grid[grid.length - 1];
-};
-
-const normalizeChartRectangles = (
-  rectangles: RectangleMarker[],
-  timeGrid: UTCTimestamp[],
-): RectangleMarker[] => {
-  return rectangles.map((marker, index) => {
-    return {
-      ...marker,
-      p1: {
-        ...marker.p1,
-        time: getGridPoint(timeGrid, marker.p1.time, index),
-      },
-      p2: {
-        ...marker.p2,
-        time: getGridPoint(timeGrid, marker.p2.time, index),
-      },
-    };
-  });
-};
 
 const ColossusChart = ({
   candles,
@@ -141,22 +108,6 @@ const ColossusChart = ({
       tradeAdviceMarkers,
       timeGrid,
     );
-
-    // tradeAdviceMarkers.map(
-    //   (marker, index) => {
-    //     return {
-    //       ...marker,
-    //       p1: {
-    //         ...marker.p1,
-    //         time: getGridPoint(timeGrid, marker.p1.time, index),
-    //       },
-    //       p2: {
-    //         ...marker.p2,
-    //         time: getGridPoint(timeGrid, marker.p2.time, index),
-    //       },
-    //     };
-    //   },
-    // );
 
     // Create and attach trade advice markers primitive
     const tradeAdviceSeriesPrimitive = new RectangleSeriesPrimitive(
