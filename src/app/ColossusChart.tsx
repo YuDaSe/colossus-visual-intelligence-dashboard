@@ -126,15 +126,13 @@ const ColossusChart = ({
   }, [candles, newsSentiments, gridSetupAdvices]);
 
   return (
-    <div className="bloody-chart">
-      <div
-        id="colossus-chart"
-        style={{
-          height: "100vh",
-          width: "100vw",
-        }}
-      ></div>
-    </div>
+    <div
+      id="colossus-chart"
+      style={{
+        height: "100vh",
+        width: "100vw",
+      }}
+    ></div>
   );
 };
 
