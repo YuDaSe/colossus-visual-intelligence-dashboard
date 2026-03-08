@@ -6,7 +6,7 @@
 
 ## 📺 Watch the Build
 
-**[Watch the Technical Deep Dive on YouTube](#)** *(Coming Soon)*
+**[Watch the Technical Deep Dive on YouTube](https://youtu.be/JEWhdmBTxA8)**
 
 Learn how we engineered this high-performance charting system from scratch, integrating MongoDB with Lightweight-Charts for sub-millisecond render times.
 
