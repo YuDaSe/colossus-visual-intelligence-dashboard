@@ -11,7 +11,7 @@ import {
   mapGridSetupAdvicesToChart,
 } from "../utils/mappers";
 
-const daysToFetch = 80;
+const daysToFetch = 100;
 
 export default async function Home() {
   await connectToDb();

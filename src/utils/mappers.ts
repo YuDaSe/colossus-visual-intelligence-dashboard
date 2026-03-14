@@ -32,6 +32,7 @@ export function mapGridSetupAdvicesToChart(
       hightBoundaryPrice:
         Number(advice.longGridSettings?.hightBoundaryPrice) || 0,
       lowBoundaryPrice: Number(advice.longGridSettings?.lowBoundaryPrice) || 0,
+      numGrids: Number(advice.longGridSettings?.numberOfGridLevels) || 0,
       startTime: getChartTime(advice.createdAt),
       endTime: nextAdvice
         ? getChartTime(nextAdvice.createdAt)
@@ -92,12 +93,21 @@ export function mapTradeAdviceToRectangleMarkers(
     endTime: number;
     sentiment: string;
   }>,
+  colors?: {
+    [SENTIMENTS.BULLISH]?: string;
+    [SENTIMENTS.NEUTRAL]?: string;
+    [SENTIMENTS.BEARISH]?: string;
+  },
 ): RectangleMarker[] {
+  const mergedColors = {
+    ...CHART_COLORS.tradeAdviceMarkers,
+    ...colors,
+  };
+
   return gridSetupAdvices.map((advice) => {
-    const color =
-      CHART_COLORS.tradeAdviceMarkers[
-        advice.sentiment as keyof typeof CHART_COLORS.tradeAdviceMarkers
-      ] || CHART_COLORS.tradeAdviceMarkers[SENTIMENTS.NEUTRAL];
+    const color = mergedColors[
+      advice.sentiment as keyof typeof mergedColors
+    ] || mergedColors[SENTIMENTS.NEUTRAL]!;
 
     return {
       p1: {
