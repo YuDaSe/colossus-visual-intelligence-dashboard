@@ -1,19 +1,14 @@
+import { SENTIMENTS } from "@/constants";
 import { OhlcData } from "lightweight-charts";
 
-interface GridState {
-  totalProfit: number;
-  tradesExecuted: number;
-  currentPosition: number; // For Futures/Spot balance tracking
-  investment: number;
-}
-
-export function runHardcoreBacktest(
+export function runHardcoreBackTest(
   candles: OhlcData[],
   upper: number,
   lower: number,
   numGrids: number,
   initialCapital: number,
   leverage: number = 1,
+  sentiment = SENTIMENTS.BULLISH,
 ) {
   const gridSize = (upper - lower) / numGrids;
   let totalProfit = 0;
@@ -27,8 +22,15 @@ export function runHardcoreBacktest(
     const closeLevel = Math.floor((candle.close - lower) / gridSize);
     const levelsCrossed = Math.abs(closeLevel - lastGridLevel);
 
-    const direction = closeLevel - lastGridLevel >= 0 ? 1 : -1;
-
+    const direction =
+      sentiment === SENTIMENTS.BULLISH
+        ? closeLevel - lastGridLevel >= 0
+          ? 1
+          : -1
+        : closeLevel - lastGridLevel >= 0
+          ? -1
+          : 1;
+          
     if (levelsCrossed > 0) {
       // Every 'cross' is a scalp.
       // Profit per grid = (GridSize / MidPrice) * (Capital / numGrids) * Leverage
@@ -40,7 +42,8 @@ export function runHardcoreBacktest(
         profitPerGrid *
         // FIX fee calculation
         // - candle.close * 0.0006
-        levelsCrossed * direction;
+        levelsCrossed *
+        direction;
 
       totalProfit += netProfit;
       trades += levelsCrossed;
@@ -48,10 +51,12 @@ export function runHardcoreBacktest(
     }
   });
 
-  return {
+  const result = {
     finalProfit: totalProfit,
     totalTrades: trades,
     ROI: ((totalProfit / initialCapital) * 100).toFixed(2) + "%",
     efficiency: (totalProfit / candles.length).toFixed(4) + " profit/candle",
   };
+
+  return result;
 }

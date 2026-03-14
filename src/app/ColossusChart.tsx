@@ -17,12 +17,10 @@ import {
 } from "@/utils/mappers";
 import { RectangleSeriesPrimitive } from "./primitives/RectangleSeriesPrimitive";
 import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
-import { forEach, last, reduce } from "lodash";
-import {
-  TradeSetupAdvice,
-  TradeSetupAdviceCorridor,
-} from "./data/database/db-services/grid-setup-advice.service";
-import { runHardcoreBacktest } from "@/utils/grid-backtest";
+import { reduce } from "lodash";
+import { TradeSetupAdvice } from "./data/database/db-services/grid-setup-advice.service";
+import { runHardcoreBackTest } from "@/utils/grid-backtest";
+import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
 
 const ColossusChart = ({
   candles,
@@ -38,71 +36,76 @@ const ColossusChart = ({
     const highestPrice = Math.max(...candles.map((c) => c.high)) * 1.1;
     const timeGrid = candles.map((c) => c.time) as UTCTimestamp[];
 
-    const corridors = gridSetupAdvices.reduce((acc, advice) => {
-      const lastCorridor = last(acc);
+    // advice-corridor-reducer
 
-      if (advice.sentiment === SENTIMENTS.BULLISH) {
-        const advicePriceRange =
-          advice.hightBoundaryPrice - advice.lowBoundaryPrice;
-        if (lastCorridor?.open) {
-          const lastCorridorPriceRange =
-            lastCorridor.hightBoundaryPrice - lastCorridor.lowBoundaryPrice;
+    const corridors = adviceCorridorReducer(candles, gridSetupAdvices);
+    const shortCorridors = adviceCorridorReducer(
+      candles,
+      gridSetupAdvices,
+      SENTIMENTS.BEARISH,
+    );
+    // .slice(3, 4);
 
-          if (advicePriceRange < lastCorridorPriceRange) {
-            lastCorridor.open = false;
-            lastCorridor.endTime = advice.startTime;
-            acc.push({
-              ...advice,
-              open: true,
-              candles: [],
-            });
-          } else {
-            lastCorridor.endTime = advice.endTime;
-          }
-        } else {
-          acc.push({
-            ...advice,
-            open: true,
-            candles: [],
-          });
-        }
-      }
-
-      if (advice.sentiment === SENTIMENTS.BEARISH) {
-        if (lastCorridor?.open) {
-          lastCorridor.endTime = advice.startTime;
-          lastCorridor.open = false;
-        }
-      }
-
-      return acc;
-    }, [] as TradeSetupAdviceCorridor[]);
-
-    forEach(corridors, (corridor) => {
-      corridor.candles = candles.filter(
-        (candle) =>
-          (candle.time as UTCTimestamp) >= corridor.startTime &&
-          (candle.time as UTCTimestamp) <= corridor.endTime,
-      );
-    });
-
-    const totalProfit = reduce(
-      corridors,
+    const initialLongBudget = 1000;
+    const leverage = 10;
+    const totalLongProfit = reduce(
+      [...corridors],
       (acc, corridor) => {
-        const { finalProfit } = runHardcoreBacktest(
+        const { finalProfit } = runHardcoreBackTest(
           corridor.candles,
           corridor.hightBoundaryPrice,
           corridor.lowBoundaryPrice,
           corridor.numGrids,
           acc,
+          leverage,
+          corridor.sentiment,
         );
 
         return acc + finalProfit;
       },
-      1000,
+      initialLongBudget,
     );
 
-    console.log("Total Backtest Profit:", totalProfit.toFixed(2));
+    const initialShortBudget = 1000;
+    const totalShortProfit = reduce(
+      [...shortCorridors.filter((corridor) => corridor.candles.length > 0)],
+      (acc, corridor) => {
+        const { finalProfit } = runHardcoreBackTest(
+          corridor.candles,
+          corridor.hightBoundaryPrice,
+          corridor.lowBoundaryPrice,
+          corridor.numGrids,
+          acc,
+          leverage,
+          corridor.sentiment,
+        );
+
+        return acc + finalProfit;
+      },
+      initialShortBudget,
+    );
+
+    console.log("Total Long Backtest Performance:", totalLongProfit.toFixed(2));
+    console.log(
+      "Total Short Backtest Performance:",
+      totalShortProfit.toFixed(2),
+    );
+    const totalCombinedProfit =
+      totalLongProfit +
+      totalShortProfit -
+      initialLongBudget -
+      initialShortBudget;
+    console.log(
+      "Total Combined Backtest Profit:",
+      totalCombinedProfit.toFixed(2),
+      "ROI: " +
+        (
+          (totalCombinedProfit / (initialLongBudget + initialShortBudget)) *
+          100
+        ).toFixed(2) +
+        "%",
+      "Leverage: " + leverage,
+    );
 
     const chartContainer = document.getElementById("colossus-chart");
 
@@ -187,7 +190,7 @@ const ColossusChart = ({
     const tradeAdviceCorridorsMarkers = mapTradeAdviceToRectangleMarkers(
       corridors,
       {
-        [SENTIMENTS.BULLISH]: "rgba(100, 255, 150, 0.2)",
+        [SENTIMENTS.BULLISH]: "rgba(100, 255, 150, 0.1)",
       },
     );
 
@@ -204,6 +207,27 @@ const ColossusChart = ({
     );
 
     candlestickSeries.attachPrimitive(tradeAdviceCorridorsSeriesPrimitive);
+
+    ///
+
+    const tradeAdviceShortCorridorsMarkers = mapTradeAdviceToRectangleMarkers(
+      shortCorridors,
+      {
+        [SENTIMENTS.BEARISH]: "rgba(255, 100, 100, 0.1)",
+      },
+    );
+
+    const normalizedTradeAdviceShortCorridorsMarkers = normalizeChartRectangles(
+      tradeAdviceShortCorridorsMarkers,
+      timeGrid,
+    );
+
+    const tradeAdviceShortCorridorsSeriesPrimitive =
+      new RectangleSeriesPrimitive(normalizedTradeAdviceShortCorridorsMarkers, {
+        drawBorderLines: true,
+      });
+
+    candlestickSeries.attachPrimitive(tradeAdviceShortCorridorsSeriesPrimitive);
 
     ///
 
