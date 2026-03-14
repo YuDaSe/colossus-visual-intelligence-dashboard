@@ -241,6 +241,8 @@ const ColossusChart = ({
         totalShortProfit={totalShortProfit}
         showLongProfit={settings.showShortCorridors}
         showShortProfit={settings.showLongCorridors}
+        initialLongInvestment={settings.initialLongBudget}
+        initialShortInvestment={settings.initialShortBudget}
       />
     </div>
   );
