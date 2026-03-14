@@ -22,32 +22,31 @@ export function runHardcoreBackTest(
     const closeLevel = Math.floor((candle.close - lower) / gridSize);
     const levelsCrossed = Math.abs(closeLevel - lastGridLevel);
 
-    const direction =
-      sentiment === SENTIMENTS.BULLISH
-        ? closeLevel - lastGridLevel >= 0
-          ? 1
-          : -1
-        : closeLevel - lastGridLevel >= 0
-          ? -1
-          : 1;
-          
     if (levelsCrossed > 0) {
-      // Every 'cross' is a scalp.
+      const isUpward = closeLevel > lastGridLevel;
+
+      // In a grid bot, profit is realized only when closing a position:
+      // BULLISH (long grid): sell on upward crosses → realize profit
+      // BEARISH (short grid): cover on downward crosses → realize profit
+      // NEUTRAL: both directions realize profit (dual-sided grid)
+      let profitableCrossings: number;
+      if (sentiment === SENTIMENTS.NEUTRAL) {
+        profitableCrossings = levelsCrossed;
+      } else if (sentiment === SENTIMENTS.BULLISH) {
+        profitableCrossings = isUpward ? levelsCrossed : 0;
+      } else {
+        profitableCrossings = isUpward ? 0 : levelsCrossed;
+      }
+
       // Profit per grid = (GridSize / MidPrice) * (Capital / numGrids) * Leverage
       const profitPerGrid =
         (gridSize / candle.close) * (initialCapital / numGrids) * leverage;
 
-      // Subtract fees (0.06% avg for taker/maker mix)
-      const netProfit =
-        profitPerGrid *
-        // FIX fee calculation
-        // - candle.close * 0.0006
-        levelsCrossed *
-        direction;
+      const netProfit = profitPerGrid * profitableCrossings;
 
       totalProfit += netProfit;
-      trades += levelsCrossed;
-      lastGridLevel = closeLevel; // Reset to the latest peak
+      trades += profitableCrossings;
+      lastGridLevel = closeLevel;
     }
   });
 
