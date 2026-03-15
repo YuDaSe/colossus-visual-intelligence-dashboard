@@ -1,4 +1,19 @@
+import { OhlcData } from "lightweight-charts";
 import GridSetupAdvice from "../schemas/grid-setup-advice";
+
+export interface TradeSetupAdvice {
+  hightBoundaryPrice: number;
+  lowBoundaryPrice: number;
+  startTime: number;
+  endTime: number;
+  sentiment: string;
+  numGrids: number;
+}
+
+export interface TradeSetupAdviceCorridor extends TradeSetupAdvice {
+  open: boolean;
+  candles: OhlcData[];
+}
 
 class GridSetupAdviceService {
   async fetchSetupAggregations(pair: string, days: number) {
