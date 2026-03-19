@@ -1,4 +1,3 @@
-import { SENTIMENTS } from "@/constants";
 import {
   ISeriesPrimitive,
   UTCTimestamp,
@@ -6,8 +5,11 @@ import {
   IPrimitivePaneRenderer,
   IPrimitivePaneView,
   SeriesAttachedParameter,
+  MouseEventParams,
 } from "lightweight-charts";
 import tinycolor from "tinycolor2";
+
+const HOVER_ALPHA_MULTIPLIER = 2.5;
 
 /**
  * Represents a single rectangle marker with two points and a color
@@ -46,6 +48,8 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
   private rectangleData: RectangleMarker[];
   private series: SeriesAttachedParameter<Time> | null = null;
   private options: RectangleRendererOptions;
+  private mouseX: number | null = null;
+  private mouseY: number | null = null;
 
   constructor(
     rectangleData: RectangleMarker[],
@@ -53,6 +57,11 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
   ) {
     this.rectangleData = rectangleData;
     this.options = options;
+  }
+
+  setMousePosition(x: number | null, y: number | null) {
+    this.mouseX = x;
+    this.mouseY = y;
   }
 
   setSeries(series: SeriesAttachedParameter<Time>) {
@@ -81,7 +90,28 @@ class RectangleRenderer implements IPrimitivePaneRenderer {
 
       // Draw rectangles on canvas
       convertedRectangles.forEach((rect: ConvertedRectangle) => {
-        context.fillStyle = rect.color;
+        const x1 = rect.x1 || 0;
+        const y1 = rect.y1 || 0;
+        const x2 = rect.x2 || 0;
+        const y2 = rect.y2 || 0;
+
+        const isHovered =
+          this.mouseX !== null &&
+          this.mouseY !== null &&
+          this.mouseX >= Math.min(x1, x2) &&
+          this.mouseX <= Math.max(x1, x2) &&
+          this.mouseY >= Math.min(y1, y2) &&
+          this.mouseY <= Math.max(y1, y2);
+
+        if (isHovered) {
+          const tc = tinycolor(rect.color);
+          const alpha = tc.getAlpha();
+          context.fillStyle = tc
+            .setAlpha(Math.min(alpha * HOVER_ALPHA_MULTIPLIER, 1))
+            .toRgbString();
+        } else {
+          context.fillStyle = rect.color;
+        }
         context.fillRect(
           (rect.x1 || 0) * horizontalPixelRatio,
           (rect.y1 || 0) * verticalPixelRatio,
@@ -142,6 +172,10 @@ class RectanglePaneView implements IPrimitivePaneView {
     this._renderer = new RectangleRenderer(rectangleData, options);
   }
 
+  setMousePosition(x: number | null, y: number | null) {
+    this._renderer.setMousePosition(x, y);
+  }
+
   update(series: SeriesAttachedParameter<Time>) {
     this._renderer.setSeries(series);
   }
@@ -163,6 +197,8 @@ export class RectangleSeriesPrimitive implements ISeriesPrimitive<Time> {
   private paneView: RectanglePaneView;
   private options: RectangleRendererOptions;
   private attachedSeries: SeriesAttachedParameter<Time> | null = null;
+  private crosshairMoveHandler: ((event: MouseEventParams) => void) | null =
+    null;
 
   constructor(
     rectangleData: RectangleMarker[],
@@ -178,12 +214,29 @@ export class RectangleSeriesPrimitive implements ISeriesPrimitive<Time> {
   attached(param: SeriesAttachedParameter<Time>): void {
     this.attachedSeries = param;
     this.paneView.update(param);
+
+    this.crosshairMoveHandler = (event: MouseEventParams) => {
+      const point = event.point;
+      if (point) {
+        this.paneView.setMousePosition(point.x, point.y);
+      } else {
+        this.paneView.setMousePosition(null, null);
+      }
+      param.requestUpdate();
+    };
+    param.chart.subscribeCrosshairMove(this.crosshairMoveHandler);
   }
 
   /**
    * Called when the primitive is detached from a series
    */
   detached(): void {
+    if (this.attachedSeries && this.crosshairMoveHandler) {
+      this.attachedSeries.chart.unsubscribeCrosshairMove(
+        this.crosshairMoveHandler,
+      );
+      this.crosshairMoveHandler = null;
+    }
     this.attachedSeries = null;
   }
 
