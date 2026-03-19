@@ -17,13 +17,17 @@ export const adviceCorridorReducer = (
       advice.hightBoundaryPrice - advice.lowBoundaryPrice;
 
     if (
-      advice.sentiment === SENTIMENTS.NEUTRAL ||
       // TODO: filter out broken advices with very wide corridors and low number of grids
       !advicePriceRange
       || !advice.lowBoundaryPrice
       || !advice.hightBoundaryPrice
     
     ) {
+      return acc;
+    }
+
+    if (advice.sentiment === SENTIMENTS.NEUTRAL && lastCorridor?.open) {
+      lastCorridor.endTime = advice.endTime;
       return acc;
     }
 
@@ -39,7 +43,9 @@ export const adviceCorridorReducer = (
       if (brokenCandle) {
         lastCorridor.endTime = brokenCandle.time as UTCTimestamp;
         lastCorridor.open = false;
-      }
+
+        return acc;
+      } 
     }
 
     if (advice.sentiment === sentiment) {
@@ -71,7 +77,6 @@ export const adviceCorridorReducer = (
         });
       }
     } else {
-      // if (advice.sentiment === SENTIMENTS.BEARISH) {
       if (lastCorridor?.open) {
         lastCorridor.endTime = advice.startTime;
         lastCorridor.open = false;

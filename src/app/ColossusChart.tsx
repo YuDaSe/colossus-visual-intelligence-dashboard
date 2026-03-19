@@ -39,7 +39,7 @@ const ColossusChart = ({
   const [settings, setSettings] = useState<ChartSettingsState>({
     initialLongBudget: 1000,
     initialShortBudget: 1000,
-    leverage: 10,
+    leverage: 1,
     showShortCorridors: true,
     showLongCorridors: true,
   });
@@ -60,13 +60,9 @@ const ColossusChart = ({
         [...corridors],
         (acc, corridor) => {
           const { finalProfit } = runHardcoreBackTest(
-            corridor.candles,
-            corridor.hightBoundaryPrice,
-            corridor.lowBoundaryPrice,
-            corridor.numGrids,
+            corridor,
             acc,
             settings.leverage,
-            corridor.sentiment,
           );
           return acc + finalProfit;
         },
@@ -81,13 +77,9 @@ const ColossusChart = ({
         [...shortCorridors.filter((c) => c.candles.length > 0)],
         (acc, corridor) => {
           const { finalProfit } = runHardcoreBackTest(
-            corridor.candles,
-            corridor.hightBoundaryPrice,
-            corridor.lowBoundaryPrice,
-            corridor.numGrids,
+            corridor,
             acc,
             settings.leverage,
-            corridor.sentiment,
           );
           return acc + finalProfit;
         },
@@ -200,7 +192,7 @@ const ColossusChart = ({
     if (settings.showShortCorridors) {
       const tradeAdviceShortCorridorsMarkers = mapTradeAdviceToRectangleMarkers(
         shortCorridors,
-        { [SENTIMENTS.BEARISH]: "rgba(255, 100, 100, 0.1)" },
+        { [SENTIMENTS.BEARISH]: "rgba(240, 117, 174, 0.2)" },
       );
       const normalizedShortCorridorsMarkers = normalizeChartRectangles(
         tradeAdviceShortCorridorsMarkers,
@@ -239,8 +231,8 @@ const ColossusChart = ({
       <ChartProfitOverlay
         totalLongProfit={totalLongProfit}
         totalShortProfit={totalShortProfit}
-        showLongProfit={settings.showShortCorridors}
-        showShortProfit={settings.showLongCorridors}
+        showLongProfit={settings.showLongCorridors}
+        showShortProfit={settings.showShortCorridors}
         initialLongInvestment={settings.initialLongBudget}
         initialShortInvestment={settings.initialShortBudget}
       />

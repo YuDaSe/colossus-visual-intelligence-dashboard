@@ -1,15 +1,18 @@
+import { TradeSetupAdviceCorridor } from "@/app/data/database/db-services/grid-setup-advice.service";
 import { SENTIMENTS } from "@/constants";
-import { OhlcData } from "lightweight-charts";
 
 export function runHardcoreBackTest(
-  candles: OhlcData[],
-  upper: number,
-  lower: number,
-  numGrids: number,
+  corridor: TradeSetupAdviceCorridor,
   initialCapital: number,
   leverage: number = 1,
-  sentiment = SENTIMENTS.BULLISH,
 ) {
+  const {
+    candles,
+    hightBoundaryPrice: upper,
+    lowBoundaryPrice: lower,
+    numGrids,
+    sentiment,
+  } = corridor;
   const gridSize = (upper - lower) / numGrids;
   const capitalPerGrid = initialCapital / numGrids;
   let realizedProfit = 0;
@@ -121,6 +124,7 @@ export function runHardcoreBackTest(
   //   sentiment === SENTIMENTS.BULLISH 
   //     ? "color: white; background: #28a745; padding: 4px 8px; border-radius: 4px;" 
   //     : "color: white; background: red; padding: 4px 8px; border-radius: 4px;",
+  //   new Date(corridor.startTime * 1000),
   //   result
   // );
 
