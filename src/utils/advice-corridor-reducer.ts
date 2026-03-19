@@ -18,10 +18,9 @@ export const adviceCorridorReducer = (
 
     if (
       // TODO: filter out broken advices with very wide corridors and low number of grids
-      !advicePriceRange
-      || !advice.lowBoundaryPrice
-      || !advice.hightBoundaryPrice
-    
+      !advicePriceRange ||
+      !advice.lowBoundaryPrice ||
+      !advice.hightBoundaryPrice
     ) {
       return acc;
     }
@@ -30,22 +29,20 @@ export const adviceCorridorReducer = (
       lastCorridor.endTime = advice.endTime;
       return acc;
     }
-
     if (lastCorridor?.open) {
       // check if there are any candles that broke the corridor while it was open, if yes - close it at the time of the first broken candle
       const brokenCandle = candles.find(
         (candle) =>
           (candle.time as UTCTimestamp) > lastCorridor.startTime &&
           (candle.time as UTCTimestamp) < lastCorridor.endTime &&
-          ((candle.low < lastCorridor.lowBoundaryPrice || candle.high > lastCorridor.hightBoundaryPrice))
+          (candle.low < lastCorridor.lowBoundaryPrice ||
+            candle.high > lastCorridor.hightBoundaryPrice),
       );
 
       if (brokenCandle) {
         lastCorridor.endTime = brokenCandle.time as UTCTimestamp;
         lastCorridor.open = false;
-
-        return acc;
-      } 
+      }
     }
 
     if (advice.sentiment === sentiment) {
@@ -56,9 +53,7 @@ export const adviceCorridorReducer = (
         const lastCorridorPriceRange =
           lastCorridor.hightBoundaryPrice - lastCorridor.lowBoundaryPrice;
 
-        if (
-          advicePriceRange < lastCorridorPriceRange
-        ) {
+        if (advicePriceRange < lastCorridorPriceRange) {
           lastCorridor.open = false;
           lastCorridor.endTime = advice.startTime;
           acc.push({
