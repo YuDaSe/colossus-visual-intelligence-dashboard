@@ -1,5 +1,6 @@
 import { TradeSetupAdviceCorridor } from "@/app/data/database/db-services/grid-setup-advice.service";
 import { SENTIMENTS } from "@/constants";
+import { isEmpty } from "lodash";
 
 export function runHardcoreBackTest(
   corridor: TradeSetupAdviceCorridor,
@@ -20,6 +21,15 @@ export function runHardcoreBackTest(
 
   const clampLevel = (level: number) =>
     Math.max(0, Math.min(numGrids, level));
+
+  if (isEmpty(candles)) {
+    return {
+      finalProfit: 0,
+      totalTrades: 0,
+      ROI: "0.00%",
+      efficiency: "0.0000 profit/candle",
+    };
+  }
 
   const startPrice = candles[0].close;
   const startLevel = clampLevel(
