@@ -5,12 +5,14 @@ import {
   ColorType,
   createChart,
   CandlestickSeries,
+  LineSeries,
   IChartApi,
   OhlcData,
   UTCTimestamp,
 } from "lightweight-charts";
 import { SENTIMENTS, CHART_COLORS } from "../constants";
 import {
+  getChartTime,
   mapNewsSentimentsToRectangleMarkers,
   mapTradeAdviceToRectangleMarkers,
   normalizeChartRectangles,
@@ -23,15 +25,18 @@ import { runHardcoreBackTest } from "@/utils/grid-backtest";
 import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
 import ChartSettings, { ChartSettingsState } from "./ChartSettings";
 import ChartProfitOverlay from "./ChartProfitOverlay";
+import { InflationRate } from "./data/database/db-services/us-inflation-rate.service";
 
 const ColossusChart = ({
   candles,
   newsSentiments,
   gridSetupAdvices,
+  inflationRates,
 }: {
   candles: OhlcData[];
   newsSentiments: NewsSentiment[];
   gridSetupAdvices: TradeSetupAdvice[];
+  inflationRates: InflationRate[];
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -125,6 +130,12 @@ const ColossusChart = ({
           type: ColorType.Solid,
           color: CHART_COLORS.layout.backgroundColor,
         },
+        panes: {
+          // separatorColor: "#f22c3d",
+          separatorHoverColor: "rgba(255, 0, 0, 0.1)",
+          // setting this to false will disable the resize of the panes by the user
+          enableResize: false,
+        },
       },
       timeScale: {
         timeVisible: true,
@@ -205,6 +216,29 @@ const ColossusChart = ({
       );
     }
 
+    // Inflation line series in a second pane
+    if (inflationRates.length > 0) {
+      const lineSeries = chart.addSeries(
+        LineSeries,
+        {
+          color: "#f5c542",
+          lineWidth: 2,
+        },
+        1,
+      );
+
+      const inflationData = inflationRates.map((r) => ({
+        time: getChartTime(r.date),
+        value: r.inflationIndex,
+      }));
+
+      lineSeries.setData(inflationData);
+
+      const inflationPane = chart.panes()[1];
+      // inflationPane.moveTo(0);
+      inflationPane.setHeight(150);
+    }
+
     chart.timeScale().fitContent();
 
     return () => {
@@ -219,14 +253,12 @@ const ColossusChart = ({
     shortCorridors,
     settings.showLongCorridors,
     settings.showShortCorridors,
+    inflationRates,
   ]);
 
   return (
     <div style={{ position: "relative", height: "100vh", width: "100vw" }}>
-      <div
-        ref={chartContainerRef}
-        style={{ height: "100%", width: "100%" }}
-      />
+      <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />
       <ChartSettings settings={settings} onChange={setSettings} />
       <ChartProfitOverlay
         totalLongProfit={totalLongProfit}
