@@ -5,6 +5,7 @@ import { OhlcData } from "lightweight-charts";
 import NewsAggregationService, {
 } from "./data/database/db-services/news-aggregation-service";
 import GridSetupAdviceService from "./data/database/db-services/grid-setup-advice.service";
+import UsInflationRateService from "./data/database/db-services/us-inflation-rate.service";
 import { PAIR } from "../constants";
 import {
   mapCandlesToOhlc,
@@ -20,6 +21,7 @@ export default async function Home() {
   const candlesDataService = new CandlesDataService();
   const newsAggregationService = new NewsAggregationService();
   const gridSetupAdviceService = new GridSetupAdviceService();
+  const usInflationRateService = new UsInflationRateService();
 
   // Fetch data from DB
   const candles = await candlesDataService.fetchPairCandles(PAIR, daysToFetch);
@@ -29,6 +31,7 @@ export default async function Home() {
     PAIR,
     daysToFetch,
   );
+  const inflationRates = await usInflationRateService.fetchByDays(daysToFetch);
 
   // Map data for chart
   const chartCandles: OhlcData[] = mapCandlesToOhlc(candles);
@@ -40,6 +43,7 @@ export default async function Home() {
         candles={chartCandles}
         newsSentiments={newsAggregations}
         gridSetupAdvices={chartGridSetupAdvices}
+        inflationRates={inflationRates}
       />
     </div>
   );
