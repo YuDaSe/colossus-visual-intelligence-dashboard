@@ -26,6 +26,7 @@ import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
 import ChartSettings, { ChartSettingsState } from "./ChartSettings";
 import ChartProfitOverlay from "./ChartProfitOverlay";
 import { InflationRate } from "./data/database/db-services/us-inflation-rate.service";
+import AddInflationRateForm from "./AddInflationRateForm";
 
 const ColossusChart = ({
   candles,
@@ -268,6 +269,7 @@ const ColossusChart = ({
         initialLongInvestment={settings.initialLongBudget}
         initialShortInvestment={settings.initialShortBudget}
       />
+      <AddInflationRateForm />
     </div>
   );
 };
