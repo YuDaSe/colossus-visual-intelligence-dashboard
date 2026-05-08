@@ -15,6 +15,11 @@ class UsInflationRateService {
       .sort({ date: 1 })
       .lean();
   }
+
+  async saveRate(date: Date, inflationIndex: number): Promise<InflationRate> {
+    const doc = await UsInflationRate.create({ date, inflationIndex });
+    return { date: doc.date, inflationIndex: doc.inflationIndex };
+  }
 }
 
 export default UsInflationRateService;
