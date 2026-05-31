@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import {
   ColorType,
   createChart,
@@ -13,86 +13,56 @@ import {
 import { SENTIMENTS, CHART_COLORS } from "../constants";
 import {
   getChartTime,
-  mapNewsSentimentsToRectangleMarkers,
   mapTradeAdviceToRectangleMarkers,
   normalizeChartRectangles,
 } from "@/utils/mappers";
-import { RectangleSeriesPrimitive } from "./primitives/RectangleSeriesPrimitive";
-import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
-import { reduce } from "lodash";
-import { TradeSetupAdvice } from "./data/database/db-services/grid-setup-advice.service";
-import { runHardcoreBackTest } from "@/utils/grid-backtest";
-import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
-import ChartSettings, { ChartSettingsState } from "./ChartSettings";
-import ChartProfitOverlay from "./ChartProfitOverlay";
-import { InflationRate } from "./data/database/db-services/us-inflation-rate.service";
-import AddInflationRateForm from "./AddInflationRateForm";
+import {
+  RectangleMarker,
+  RectangleSeriesPrimitive,
+} from "./primitives/RectangleSeriesPrimitive";
+
+export interface ChartNewsSentiment {
+  sentiment: string;
+  timeRange: { start: Date; end: Date };
+}
+
+export interface ChartTradeSetupAdvice {
+  hightBoundaryPrice: number;
+  lowBoundaryPrice: number;
+  startTime: number;
+  endTime: number;
+  sentiment: string;
+  numGrids: number;
+}
+
+export interface ChartInflationRate {
+  date: Date;
+  inflationIndex: number;
+}
+
+export interface ChartCorridorColors {
+  bullish?: string;
+  bearish?: string;
+  neutral?: string;
+}
 
 const ColossusChart = ({
   candles,
   newsSentiments,
   gridSetupAdvices,
+  gridSetups,
+  gridSetupsColors,
   inflationRates,
 }: {
   candles: OhlcData[];
-  newsSentiments: NewsSentiment[];
-  gridSetupAdvices: TradeSetupAdvice[];
-  inflationRates: InflationRate[];
+  newsSentiments: ChartNewsSentiment[];
+  gridSetupAdvices: ChartTradeSetupAdvice[];
+  gridSetups: ChartTradeSetupAdvice[];
+  gridSetupsColors?: ChartCorridorColors;
+  inflationRates: ChartInflationRate[];
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-
-  const [settings, setSettings] = useState<ChartSettingsState>({
-    initialLongBudget: 1000,
-    initialShortBudget: 1000,
-    leverage: 1,
-    showShortCorridors: true,
-    showLongCorridors: true,
-  });
-
-  const corridors = useMemo(
-    () => adviceCorridorReducer(candles, gridSetupAdvices),
-    [candles, gridSetupAdvices],
-  );
-
-  const shortCorridors = useMemo(
-    () => adviceCorridorReducer(candles, gridSetupAdvices, SENTIMENTS.BEARISH),
-    [candles, gridSetupAdvices],
-  );
-
-  const totalLongProfit = useMemo(
-    () =>
-      reduce(
-        [...corridors],
-        (acc, corridor) => {
-          const { finalProfit } = runHardcoreBackTest(
-            corridor,
-            acc,
-            settings.leverage,
-          );
-          return acc + finalProfit;
-        },
-        settings.initialLongBudget,
-      ),
-    [corridors, settings.initialLongBudget, settings.leverage],
-  );
-
-  const totalShortProfit = useMemo(
-    () =>
-      reduce(
-        [...shortCorridors.filter((c) => c.candles.length > 0)],
-        (acc, corridor) => {
-          const { finalProfit } = runHardcoreBackTest(
-            corridor,
-            acc,
-            settings.leverage,
-          );
-          return acc + finalProfit;
-        },
-        settings.initialShortBudget,
-      ),
-    [shortCorridors, settings.initialShortBudget, settings.leverage],
-  );
 
   // Handle window resize
   useEffect(() => {
@@ -158,10 +128,13 @@ const ColossusChart = ({
     candlestickSeries.setData(candles);
 
     // Sentiment markers
-    const sentimentMarkers = mapNewsSentimentsToRectangleMarkers(
-      newsSentiments,
-      { lowestPrice, highestPrice },
-    );
+    const sentimentMarkers: RectangleMarker[] = newsSentiments.map((s) => ({
+      p1: { time: getChartTime(s.timeRange.start), price: lowestPrice },
+      p2: { time: getChartTime(s.timeRange.end), price: highestPrice },
+      color:
+        CHART_COLORS.sentimentMarkers[s.sentiment] ||
+        CHART_COLORS.sentimentMarkers[SENTIMENTS.NEUTRAL],
+    }));
     const normalizedSentimentMarkers = normalizeChartRectangles(
       sentimentMarkers,
       timeGrid,
@@ -170,9 +143,8 @@ const ColossusChart = ({
       new RectangleSeriesPrimitive(normalizedSentimentMarkers),
     );
 
-    // Trade advice markers
-    const tradeAdviceMarkers =
-      mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
+    // Trade advice markers (raw setup boxes)
+    const tradeAdviceMarkers = mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
     const normalizedTradeAdviceMarkers = normalizeChartRectangles(
       tradeAdviceMarkers,
       timeGrid,
@@ -183,35 +155,23 @@ const ColossusChart = ({
       }),
     );
 
-    // Long corridors
-    if (settings.showLongCorridors) {
-      const tradeAdviceCorridorsMarkers = mapTradeAdviceToRectangleMarkers(
-        corridors,
-        { [SENTIMENTS.BULLISH]: "rgba(100, 255, 150, 0.1)" },
-      );
-      const normalizedTradeAdviceCorridorsMarkers = normalizeChartRectangles(
-        tradeAdviceCorridorsMarkers,
-        timeGrid,
-      );
-      candlestickSeries.attachPrimitive(
-        new RectangleSeriesPrimitive(normalizedTradeAdviceCorridorsMarkers, {
-          drawBorderLines: true,
-        }),
-      );
-    }
+    // Grid setup corridors (long + short, pre-filtered by container)
+    if (gridSetups.length > 0) {
+      const corridorColorOverrides: Record<string, string> = {};
+      if (gridSetupsColors?.bullish) corridorColorOverrides[SENTIMENTS.BULLISH] = gridSetupsColors.bullish;
+      if (gridSetupsColors?.bearish) corridorColorOverrides[SENTIMENTS.BEARISH] = gridSetupsColors.bearish;
+      if (gridSetupsColors?.neutral) corridorColorOverrides[SENTIMENTS.NEUTRAL] = gridSetupsColors.neutral;
 
-    // Short corridors
-    if (settings.showShortCorridors) {
-      const tradeAdviceShortCorridorsMarkers = mapTradeAdviceToRectangleMarkers(
-        shortCorridors,
-        { [SENTIMENTS.BEARISH]: "rgba(240, 117, 174, 0.2)" },
+      const gridSetupsMarkers = mapTradeAdviceToRectangleMarkers(
+        gridSetups,
+        Object.keys(corridorColorOverrides).length > 0 ? corridorColorOverrides : undefined,
       );
-      const normalizedShortCorridorsMarkers = normalizeChartRectangles(
-        tradeAdviceShortCorridorsMarkers,
+      const normalizedGridSetupsMarkers = normalizeChartRectangles(
+        gridSetupsMarkers,
         timeGrid,
       );
       candlestickSeries.attachPrimitive(
-        new RectangleSeriesPrimitive(normalizedShortCorridorsMarkers, {
+        new RectangleSeriesPrimitive(normalizedGridSetupsMarkers, {
           drawBorderLines: true,
         }),
       );
@@ -246,31 +206,10 @@ const ColossusChart = ({
       chartRef.current = null;
       chart.remove();
     };
-  }, [
-    candles,
-    newsSentiments,
-    gridSetupAdvices,
-    corridors,
-    shortCorridors,
-    settings.showLongCorridors,
-    settings.showShortCorridors,
-    inflationRates,
-  ]);
+  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates]);
 
   return (
-    <div style={{ position: "relative", height: "100vh", width: "100vw" }}>
-      <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />
-      <ChartSettings settings={settings} onChange={setSettings} />
-      <ChartProfitOverlay
-        totalLongProfit={totalLongProfit}
-        totalShortProfit={totalShortProfit}
-        showLongProfit={settings.showLongCorridors}
-        showShortProfit={settings.showShortCorridors}
-        initialLongInvestment={settings.initialLongBudget}
-        initialShortInvestment={settings.initialShortBudget}
-      />
-      <AddInflationRateForm />
-    </div>
+    <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />
   );
 };
 
