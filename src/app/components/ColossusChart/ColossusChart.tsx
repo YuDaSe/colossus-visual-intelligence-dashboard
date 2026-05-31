@@ -10,41 +10,25 @@ import {
   OhlcData,
   UTCTimestamp,
 } from "lightweight-charts";
-import { SENTIMENTS, CHART_COLORS } from "@/constants";
 import {
   getChartTime,
   mapTradeAdviceToRectangleMarkers,
-  normalizeChartRectangles,
 } from "@/utils/mappers";
 import {
   RectangleMarker,
   RectangleSeriesPrimitive,
 } from "./primitives/RectangleSeriesPrimitive";
+import { normalizeChartRectangles } from "./utils/normalizeChartRectangles";
+import {
+  Sentiment,
+  ChartColors,
+  ChartNewsSentiment,
+  ChartTradeSetupAdvice,
+  ChartInflationRate,
+  ChartCorridorColors,
+} from "./types";
 
-export interface ChartNewsSentiment {
-  sentiment: string;
-  timeRange: { start: Date; end: Date };
-}
-
-export interface ChartTradeSetupAdvice {
-  hightBoundaryPrice: number;
-  lowBoundaryPrice: number;
-  startTime: number;
-  endTime: number;
-  sentiment: string;
-  numGrids: number;
-}
-
-export interface ChartInflationRate {
-  date: Date;
-  inflationIndex: number;
-}
-
-export interface ChartCorridorColors {
-  bullish?: string;
-  bearish?: string;
-  neutral?: string;
-}
+export type { ChartNewsSentiment, ChartTradeSetupAdvice, ChartInflationRate, ChartCorridorColors, ChartColors };
 
 const ColossusChart = ({
   candles,
@@ -53,6 +37,7 @@ const ColossusChart = ({
   gridSetups,
   gridSetupsColors,
   inflationRates,
+  chartColors,
 }: {
   candles: OhlcData[];
   newsSentiments: ChartNewsSentiment[];
@@ -60,6 +45,7 @@ const ColossusChart = ({
   gridSetups: ChartTradeSetupAdvice[];
   gridSetupsColors?: ChartCorridorColors;
   inflationRates: ChartInflationRate[];
+  chartColors: ChartColors;
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -99,7 +85,7 @@ const ColossusChart = ({
         textColor: "white",
         background: {
           type: ColorType.Solid,
-          color: CHART_COLORS.layout.backgroundColor,
+          color: chartColors.layout.backgroundColor,
         },
         panes: {
           // separatorColor: "#f22c3d",
@@ -111,18 +97,18 @@ const ColossusChart = ({
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: CHART_COLORS.timeScale.borderColor,
+        borderColor: chartColors.timeScale.borderColor,
       },
     }) as IChartApi;
 
     chartRef.current = chart;
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BULLISH]}`,
-      downColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BEARISH]}`,
+      upColor: `#${chartColors.candlestickSeries[Sentiment.BULLISH]}`,
+      downColor: `#${chartColors.candlestickSeries[Sentiment.BEARISH]}`,
       borderVisible: true,
-      wickUpColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BULLISH]}`,
-      wickDownColor: `#${CHART_COLORS.candlestickSeries[SENTIMENTS.BEARISH]}`,
+      wickUpColor: `#${chartColors.candlestickSeries[Sentiment.BULLISH]}`,
+      wickDownColor: `#${chartColors.candlestickSeries[Sentiment.BEARISH]}`,
     });
 
     candlestickSeries.setData(candles);
@@ -132,8 +118,8 @@ const ColossusChart = ({
       p1: { time: getChartTime(s.timeRange.start), price: lowestPrice },
       p2: { time: getChartTime(s.timeRange.end), price: highestPrice },
       color:
-        CHART_COLORS.sentimentMarkers[s.sentiment] ||
-        CHART_COLORS.sentimentMarkers[SENTIMENTS.NEUTRAL],
+        chartColors.sentimentMarkers[s.sentiment] ||
+        chartColors.sentimentMarkers[Sentiment.NEUTRAL],
     }));
     const normalizedSentimentMarkers = normalizeChartRectangles(
       sentimentMarkers,
@@ -158,9 +144,9 @@ const ColossusChart = ({
     // Grid setup corridors (long + short, pre-filtered by container)
     if (gridSetups.length > 0) {
       const corridorColorOverrides: Record<string, string> = {};
-      if (gridSetupsColors?.bullish) corridorColorOverrides[SENTIMENTS.BULLISH] = gridSetupsColors.bullish;
-      if (gridSetupsColors?.bearish) corridorColorOverrides[SENTIMENTS.BEARISH] = gridSetupsColors.bearish;
-      if (gridSetupsColors?.neutral) corridorColorOverrides[SENTIMENTS.NEUTRAL] = gridSetupsColors.neutral;
+      if (gridSetupsColors?.bullish) corridorColorOverrides[Sentiment.BULLISH] = gridSetupsColors.bullish;
+      if (gridSetupsColors?.bearish) corridorColorOverrides[Sentiment.BEARISH] = gridSetupsColors.bearish;
+      if (gridSetupsColors?.neutral) corridorColorOverrides[Sentiment.NEUTRAL] = gridSetupsColors.neutral;
 
       const gridSetupsMarkers = mapTradeAdviceToRectangleMarkers(
         gridSetups,
@@ -206,7 +192,7 @@ const ColossusChart = ({
       chartRef.current = null;
       chart.remove();
     };
-  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates]);
+  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates, chartColors]);
 
   return (
     <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />

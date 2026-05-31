@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { OhlcData } from "lightweight-charts";
 import { reduce } from "lodash";
-import { SENTIMENTS } from "@/constants";
+import { CHART_COLORS, SENTIMENTS } from "@/constants";
 import { NewsSentiment } from "../data/database/db-services/news-aggregation-service";
 import { TradeSetupAdvice } from "../data/database/db-services/grid-setup-advice.service";
 import { InflationRate } from "../data/database/db-services/us-inflation-rate.service";
@@ -99,6 +99,7 @@ const ColossusChartContainer = ({
           bearish: "rgba(240, 117, 174, 0.2)",
         }}
         inflationRates={inflationRates}
+        chartColors={CHART_COLORS}
       />
       <ChartSettings settings={settings} onChange={setSettings} />
       <ChartProfitOverlay
