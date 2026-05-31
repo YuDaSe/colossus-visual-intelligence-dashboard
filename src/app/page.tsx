@@ -1,4 +1,4 @@
-import ColossusChart from "./ColossusChart";
+import ColossusChartContainer from "./containers/ColossusChartContainer";
 import { connectToDb } from "./data/database/utils/with-db";
 import CandlesDataService from "./data/database/db-services/candles-data-service";
 import { OhlcData } from "lightweight-charts";
@@ -39,7 +39,7 @@ export default async function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <ColossusChart
+      <ColossusChartContainer
         candles={chartCandles}
         newsSentiments={newsAggregations}
         gridSetupAdvices={chartGridSetupAdvices}
