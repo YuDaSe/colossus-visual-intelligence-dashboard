@@ -1,4 +1,4 @@
-import ColossusChartContainer from "./ColossusChartContainer";
+import ColossusChartContainer from "./containers/ColossusChartContainer";
 import { connectToDb } from "./data/database/utils/with-db";
 import CandlesDataService from "./data/database/db-services/candles-data-service";
 import { OhlcData } from "lightweight-charts";

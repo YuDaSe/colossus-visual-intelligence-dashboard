@@ -10,7 +10,7 @@ import {
   OhlcData,
   UTCTimestamp,
 } from "lightweight-charts";
-import { SENTIMENTS, CHART_COLORS } from "../constants";
+import { SENTIMENTS, CHART_COLORS } from "@/constants";
 import {
   getChartTime,
   mapTradeAdviceToRectangleMarkers,

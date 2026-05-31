@@ -3,16 +3,16 @@
 import { useState, useMemo } from "react";
 import { OhlcData } from "lightweight-charts";
 import { reduce } from "lodash";
-import { SENTIMENTS } from "../constants";
-import { NewsSentiment } from "./data/database/db-services/news-aggregation-service";
-import { TradeSetupAdvice } from "./data/database/db-services/grid-setup-advice.service";
-import { InflationRate } from "./data/database/db-services/us-inflation-rate.service";
+import { SENTIMENTS } from "@/constants";
+import { NewsSentiment } from "../data/database/db-services/news-aggregation-service";
+import { TradeSetupAdvice } from "../data/database/db-services/grid-setup-advice.service";
+import { InflationRate } from "../data/database/db-services/us-inflation-rate.service";
 import { runHardcoreBackTest } from "@/utils/grid-backtest";
 import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
-import ChartSettings, { ChartSettingsState } from "./ChartSettings";
-import ChartProfitOverlay from "./ChartProfitOverlay";
-import AddInflationRateForm from "./AddInflationRateForm";
-import ColossusChart from "./ColossusChart";
+import ChartSettings, { ChartSettingsState } from "../components/ChartSettings";
+import ChartProfitOverlay from "../components/ChartProfitOverlay";
+import AddInflationRateForm from "../components/AddInflationRateForm";
+import ColossusChart from "../components/ColossusChart/ColossusChart";
 
 const ColossusChartContainer = ({
   candles,
