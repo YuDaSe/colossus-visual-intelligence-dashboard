@@ -38,6 +38,7 @@ const ColossusChart = ({
   gridSetupsColors,
   inflationRates,
   chartColors,
+  smaData,
 }: {
   candles: OhlcData[];
   newsSentiments: ChartNewsSentiment[];
@@ -46,6 +47,7 @@ const ColossusChart = ({
   gridSetupsColors?: ChartCorridorColors;
   inflationRates: ChartInflationRate[];
   chartColors: ChartColors;
+  smaData?: { time: UTCTimestamp; value: number }[];
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -186,13 +188,24 @@ const ColossusChart = ({
       inflationPane.setHeight(150);
     }
 
+    // SMA line series on the main pane
+    if (smaData && smaData.length > 0) {
+      const smaSeries = chart.addSeries(LineSeries, {
+        color: "#f59e42",
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      smaSeries.setData(smaData);
+    }
+
     chart.timeScale().fitContent();
 
     return () => {
       chartRef.current = null;
       chart.remove();
     };
-  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates, chartColors]);
+  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates, chartColors, smaData]);
 
   return (
     <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />
