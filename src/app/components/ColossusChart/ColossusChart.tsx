@@ -206,7 +206,7 @@ const ColossusChart = ({
       smaSeries.setData(smaData);
     }
 
-    const initialBars = 200q;
+    const initialBars = 200;
     const rightPadding = Math.floor(initialBars / 3);
     chart.timeScale().setVisibleLogicalRange({
       from: candles.length - initialBars,
