@@ -9,6 +9,7 @@ import {
   IChartApi,
   OhlcData,
   UTCTimestamp,
+  LineStyle,
 } from "lightweight-charts";
 import {
   getChartTime,
@@ -80,8 +81,14 @@ const ColossusChart = ({
       width: chartContainer.clientWidth,
       height: chartContainer.clientHeight,
       grid: {
-        vertLines: { color: "transparent" },
-        horzLines: { color: "transparent" },
+        vertLines: { 
+          color: "#555",
+          style: LineStyle.Dashed,
+        },
+        horzLines: { 
+          color: "#555",
+          style: LineStyle.Dashed,
+        },
       },
       layout: {
         textColor: "white",
@@ -199,7 +206,12 @@ const ColossusChart = ({
       smaSeries.setData(smaData);
     }
 
-    chart.timeScale().fitContent();
+    const initialBars = 200;
+    const rightPadding = Math.floor(initialBars / 3);
+    chart.timeScale().setVisibleLogicalRange({
+      from: candles.length - initialBars,
+      to: candles.length - 1 + rightPadding,
+    });
 
     return () => {
       chartRef.current = null;
