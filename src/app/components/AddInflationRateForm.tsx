@@ -21,7 +21,7 @@ const inputStyle: React.CSSProperties = {
 
 const panelStyle: React.CSSProperties = {
   position: "absolute",
-  top: 220,
+  top: 320,
   left: 12,
   zIndex: 10,
   background: "rgba(19, 23, 34, 0.92)",

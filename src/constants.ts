@@ -39,7 +39,14 @@ export const CANDLE_INTERVALS = {
   ONE_MONTH: '1M',
 };
 
+export const TRADING_PAIR = [
+  'BTCUSDT',
+  'ETHUSDT',
+  'BNBUSDT',
+];
+
 export const PAIR = 'BTCUSDT';
+export const DEFAULT_CANDLE_INTERVAL = CANDLE_INTERVALS.FOUR_HOURS;
 
 export const CANDLE_INTERVALS_SECONDS: Record<string, number> = {
   [CANDLE_INTERVALS.ONE_MINUTE]: 60,
@@ -52,3 +59,5 @@ export const CANDLE_INTERVALS_SECONDS: Record<string, number> = {
   [CANDLE_INTERVALS.ONE_WEEK]: 7 * 24 * 60 * 60,
   [CANDLE_INTERVALS.ONE_MONTH]: 30 * 24 * 60 * 60, // Approximation
 };
+
+export const DEFAULT_CANDLES_DAYS = 200;
