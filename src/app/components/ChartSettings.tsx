@@ -22,7 +22,7 @@ const ChartSettings = ({
     <div
       style={{
         position: "absolute",
-        top: 12,
+        top: 112,
         left: 12,
         zIndex: 10,
         background: "rgba(19, 23, 34, 0.92)",

@@ -6,13 +6,15 @@ import NewsAggregationService, {
 } from "./data/database/db-services/news-aggregation-service";
 import GridSetupAdviceService from "./data/database/db-services/grid-setup-advice.service";
 import UsInflationRateService from "./data/database/db-services/us-inflation-rate.service";
-import { PAIR } from "../constants";
+import {
+  DEFAULT_CANDLE_INTERVAL,
+  DEFAULT_CANDLES_DAYS,
+  PAIR,
+} from "../constants";
 import {
   mapCandlesToOhlc,
   mapGridSetupAdvicesToChart,
 } from "../utils/mappers";
-
-const daysToFetch = 200;
 
 export default async function Home() {
   await connectToDb();
@@ -24,14 +26,18 @@ export default async function Home() {
   const usInflationRateService = new UsInflationRateService();
 
   // Fetch data from DB
-  const candles = await candlesDataService.fetchPairCandles(PAIR, daysToFetch);
+  const candles = await candlesDataService.fetchPairCandles(
+    PAIR,
+    DEFAULT_CANDLES_DAYS,
+    DEFAULT_CANDLE_INTERVAL,
+  );
   const newsAggregations =
-    await newsAggregationService.fetchRecentAggregationsNarrative(daysToFetch);
+    await newsAggregationService.fetchRecentAggregationsNarrative(DEFAULT_CANDLES_DAYS);
   const gridSetupAdvices = await gridSetupAdviceService.fetchSetupAggregations(
     PAIR,
-    daysToFetch,
+    DEFAULT_CANDLES_DAYS,
   );
-  const inflationRates = await usInflationRateService.fetchByDays(daysToFetch);
+  const inflationRates = await usInflationRateService.fetchByDays(DEFAULT_CANDLES_DAYS);
 
   // Map data for chart
   const chartCandles: OhlcData[] = mapCandlesToOhlc(candles);
@@ -40,6 +46,8 @@ export default async function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <ColossusChartContainer
+        pair={PAIR}
+        interval={DEFAULT_CANDLE_INTERVAL}
         candles={chartCandles}
         newsSentiments={newsAggregations}
         gridSetupAdvices={chartGridSetupAdvices}

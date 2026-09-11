@@ -28,7 +28,7 @@ const ChartProfitOverlay = ({
     <div
       style={{
         position: "absolute",
-        top: 12,
+        top: 112,
         left: 250,
         zIndex: 10,
         display: "flex",

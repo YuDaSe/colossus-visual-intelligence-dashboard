@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { OhlcData } from "lightweight-charts";
 import { reduce } from "lodash";
 import { CHART_COLORS, SENTIMENTS } from "@/constants";
@@ -15,18 +15,26 @@ import AddInflationRateForm from "../components/AddInflationRateForm";
 import ColossusChart from "../components/ColossusChart/ColossusChart";
 import SMA from "@/utils/indicators/SMA";
 import { findConsolidationZones } from "@/utils/consolidation-zones";
+import { mapCandlesToOhlc } from "@/utils/mappers";
+import TradingMarketBar, { TradingMarket } from "../components/TradingMarketBar";
 
 const ColossusChartContainer = ({
-  candles,
+  pair,
+  interval,
+  candles: initialCandles,
   newsSentiments,
   gridSetupAdvices,
   inflationRates,
 }: {
+  pair: string;
+  interval: string;
   candles: OhlcData[];
   newsSentiments: NewsSentiment[];
   gridSetupAdvices: TradeSetupAdvice[];
   inflationRates: InflationRate[];
 }) => {
+  const [market, setMarket] = useState<TradingMarket>({ pair, interval });
+  const [candles, setCandles] = useState(initialCandles);
   const [settings, setSettings] = useState<ChartSettingsState>({
     initialLongBudget: 1000,
     initialShortBudget: 1000,
@@ -34,6 +42,33 @@ const ColossusChartContainer = ({
     showShortCorridors: true,
     showLongCorridors: true,
   });
+
+  useEffect(() => {
+    const loadCandles = async () => {
+      const params = new URLSearchParams({
+        pair: market.pair,
+        interval: market.interval,
+      });
+      const response = await fetch(`/api/candles?${params.toString()}`);
+
+      if (!response.ok) {
+        return;
+      }
+
+      const rawCandles = await response.json();
+
+      setCandles(
+        mapCandlesToOhlc(
+          rawCandles.map((candle: { openTime: string }) => ({
+            ...candle,
+            openTime: new Date(candle.openTime),
+          })),
+        ),
+      );
+    };
+
+    loadCandles();
+  }, [market]);
 
   const corridors = useMemo(
     () => adviceCorridorReducer(candles, gridSetupAdvices),
@@ -128,6 +163,7 @@ const ColossusChartContainer = ({
 
   return (
     <div style={{ position: "relative", height: "100vh", width: "100vw" }}>
+      <TradingMarketBar market={market} onChange={setMarket} />
       <ColossusChart
         candles={candles}
         newsSentiments={newsSentiments}
@@ -141,7 +177,10 @@ const ColossusChartContainer = ({
         chartColors={CHART_COLORS}
         smaData={smaData}
       />
-      <ChartSettings settings={settings} onChange={setSettings} />
+      <ChartSettings
+        settings={settings}
+        onChange={setSettings}
+      />
       <ChartProfitOverlay
         totalLongProfit={totalLongProfit}
         totalShortProfit={totalShortProfit}
