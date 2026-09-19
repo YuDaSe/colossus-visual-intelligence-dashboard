@@ -1,10 +1,14 @@
+import { last } from "lodash";
 import { UTCTimestamp } from "lightweight-charts";
+import { TradingSignals } from "trading-signals";
 
 const WEEK_IN_SECONDS = 7 * 24 * 60 * 60;
 const MAX_PRICE_RANGE_PERCENT = 0.03;
 const PIVOT_LOOKBACK = 3;
 
-export type SmaPoint = { time: UTCTimestamp; value: number };
+export type TimePoint = { time: UTCTimestamp; value: number };
+
+export type CrossOverPoint = { time: UTCTimestamp; value: number; type: TradingSignals };
 
 export enum PivotType {
   HIGH = "high",
@@ -27,7 +31,41 @@ export type ConsolidationZone = {
   closed: boolean;
 };
 
-function findPivots(smaData: SmaPoint[]): Pivot[] {
+export const hasTurnedDown = (
+  sequence: TimePoint[]
+): boolean => {
+  const lastPoint = last(sequence);
+  const [twoBeforeLast, oneBeforeLast] = sequence.slice(sequence.length - 3, sequence.length - 1);
+
+  if (!lastPoint || !twoBeforeLast || !oneBeforeLast) {
+    return false;
+  }
+  // Check if the sequence has turned down
+  if (oneBeforeLast.value > twoBeforeLast.value && lastPoint.value < oneBeforeLast.value) {
+    return true;
+  }
+
+  return false;
+}
+
+export const hasTurnedUp = (
+  sequence: TimePoint[]
+): boolean => {
+  const lastPoint = last(sequence);
+  const [twoBeforeLast, oneBeforeLast] = sequence.slice(sequence.length - 3, sequence.length - 1);
+
+  if (!lastPoint || !twoBeforeLast || !oneBeforeLast) {
+    return false;
+  }
+  // Check if the sequence has turned up
+  if (oneBeforeLast.value < twoBeforeLast.value && lastPoint.value > oneBeforeLast.value) {
+    return true;
+  }
+
+  return false;
+}
+
+function findPivots(smaData: TimePoint[]): Pivot[] {
   const pivots: Pivot[] = [];
 
   for (let i = PIVOT_LOOKBACK; i < smaData.length; i++) {
@@ -69,7 +107,7 @@ function buildZone(pivots: Pivot[]): ConsolidationZone {
   };
 }
 
-export function findConsolidationZones(smaData: SmaPoint[]): ConsolidationZone[] {
+export function findConsolidationZones(smaData: TimePoint[]): ConsolidationZone[] {
   const rawPivots = findPivots(smaData);
 
   // Enforce strict alternation: skip consecutive same-type pivots, keeping the more extreme one

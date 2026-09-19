@@ -10,6 +10,7 @@ import {
   OhlcData,
   UTCTimestamp,
   LineStyle,
+  LineWidth,
 } from "lightweight-charts";
 import {
   getChartTime,
@@ -28,8 +29,21 @@ import {
   ChartInflationRate,
   ChartCorridorColors,
 } from "./types";
+import { forEach } from "lodash";
 
-export type { ChartNewsSentiment, ChartTradeSetupAdvice, ChartInflationRate, ChartCorridorColors, ChartColors };
+export type {
+  ChartNewsSentiment,
+  ChartTradeSetupAdvice,
+  ChartInflationRate,
+  ChartCorridorColors,
+  ChartColors,
+};
+
+export interface CharIndicator {
+  points: { time: UTCTimestamp; value: number }[];
+  color: string;
+  lineWidth: LineWidth;
+}
 
 const ColossusChart = ({
   candles,
@@ -38,8 +52,10 @@ const ColossusChart = ({
   gridSetups,
   gridSetupsColors,
   inflationRates,
+  inflationIndicators,
   chartColors,
-  smaData,
+  // smaData,
+  chartIndicators,
 }: {
   candles: OhlcData[];
   newsSentiments: ChartNewsSentiment[];
@@ -47,8 +63,10 @@ const ColossusChart = ({
   gridSetups: ChartTradeSetupAdvice[];
   gridSetupsColors?: ChartCorridorColors;
   inflationRates: ChartInflationRate[];
+  inflationIndicators: CharIndicator[];
   chartColors: ChartColors;
-  smaData?: { time: UTCTimestamp; value: number }[];
+  // smaData?: { time: UTCTimestamp; value: number }[];
+  chartIndicators?: CharIndicator[];
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -81,11 +99,11 @@ const ColossusChart = ({
       width: chartContainer.clientWidth,
       height: chartContainer.clientHeight,
       grid: {
-        vertLines: { 
+        vertLines: {
           color: "#555",
           style: LineStyle.Dashed,
         },
-        horzLines: { 
+        horzLines: {
           color: "#555",
           style: LineStyle.Dashed,
         },
@@ -139,7 +157,8 @@ const ColossusChart = ({
     );
 
     // Trade advice markers (raw setup boxes)
-    const tradeAdviceMarkers = mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
+    const tradeAdviceMarkers =
+      mapTradeAdviceToRectangleMarkers(gridSetupAdvices);
     const normalizedTradeAdviceMarkers = normalizeChartRectangles(
       tradeAdviceMarkers,
       timeGrid,
@@ -153,13 +172,18 @@ const ColossusChart = ({
     // Grid setup corridors (long + short, pre-filtered by container)
     if (gridSetups.length > 0) {
       const corridorColorOverrides: Record<string, string> = {};
-      if (gridSetupsColors?.bullish) corridorColorOverrides[Sentiment.BULLISH] = gridSetupsColors.bullish;
-      if (gridSetupsColors?.bearish) corridorColorOverrides[Sentiment.BEARISH] = gridSetupsColors.bearish;
-      if (gridSetupsColors?.neutral) corridorColorOverrides[Sentiment.NEUTRAL] = gridSetupsColors.neutral;
+      if (gridSetupsColors?.bullish)
+        corridorColorOverrides[Sentiment.BULLISH] = gridSetupsColors.bullish;
+      if (gridSetupsColors?.bearish)
+        corridorColorOverrides[Sentiment.BEARISH] = gridSetupsColors.bearish;
+      if (gridSetupsColors?.neutral)
+        corridorColorOverrides[Sentiment.NEUTRAL] = gridSetupsColors.neutral;
 
       const gridSetupsMarkers = mapTradeAdviceToRectangleMarkers(
         gridSetups,
-        Object.keys(corridorColorOverrides).length > 0 ? corridorColorOverrides : undefined,
+        Object.keys(corridorColorOverrides).length > 0
+          ? corridorColorOverrides
+          : undefined,
       );
       const normalizedGridSetupsMarkers = normalizeChartRectangles(
         gridSetupsMarkers,
@@ -190,21 +214,42 @@ const ColossusChart = ({
 
       lineSeries.setData(inflationData);
 
+      ///
+      forEach(inflationIndicators, (indicator) => {
+        const inflationIndicatorData = indicator.points.map((r) => ({
+          time: getChartTime(r.time),
+          value: r.value,
+        }));
+
+        const lineSeries = chart.addSeries(
+          LineSeries,
+          {
+            color: indicator.color,
+            lineWidth: indicator.lineWidth,
+            priceLineVisible: false,
+            lastValueVisible: false,
+          },
+          1,
+        );
+        console.log(inflationIndicatorData);
+        lineSeries.setData(inflationIndicatorData);
+      });
+      ///
+
       const inflationPane = chart.panes()[1];
       // inflationPane.moveTo(0);
-      inflationPane.setHeight(150);
+      inflationPane.setHeight(200);
     }
 
-    // SMA line series on the main pane
-    if (smaData && smaData.length > 0) {
-      const smaSeries = chart.addSeries(LineSeries, {
-        color: "#f59e42",
-        lineWidth: 2,
+    forEach(chartIndicators, (indicator) => {
+      const lineSeries = chart.addSeries(LineSeries, {
+        color: indicator.color,
+        lineWidth: indicator.lineWidth,
         priceLineVisible: false,
         lastValueVisible: false,
       });
-      smaSeries.setData(smaData);
-    }
+      lineSeries.setData(indicator.points);
+    });
 
     const initialBars = 200;
     const rightPadding = Math.floor(initialBars / 3);
@@ -217,7 +262,16 @@ const ColossusChart = ({
       chartRef.current = null;
       chart.remove();
     };
-  }, [candles, newsSentiments, gridSetupAdvices, gridSetups, gridSetupsColors, inflationRates, chartColors, smaData]);
+  }, [
+    candles,
+    newsSentiments,
+    gridSetupAdvices,
+    gridSetups,
+    gridSetupsColors,
+    inflationRates,
+    chartColors,
+    chartIndicators,
+  ]);
 
   return (
     <div ref={chartContainerRef} style={{ height: "100%", width: "100%" }} />

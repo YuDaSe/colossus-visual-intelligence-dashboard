@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { OhlcData } from "lightweight-charts";
-import { reduce } from "lodash";
+import {
+  EMA,
+  SMA,
+  hasCrossedOver,
+  hasCrossedUnder,
+  ATR,
+  TradingSignal,
+} from "trading-signals";
+import { LineWidth, OhlcData, UTCTimestamp } from "lightweight-charts";
+import { compact, reduce } from "lodash";
 import { CHART_COLORS, SENTIMENTS } from "@/constants";
 import { NewsSentiment } from "../data/database/db-services/news-aggregation-service";
 import { TradeSetupAdvice } from "../data/database/db-services/grid-setup-advice.service";
@@ -12,11 +20,19 @@ import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
 import ChartSettings, { ChartSettingsState } from "../components/ChartSettings";
 import ChartProfitOverlay from "../components/ChartProfitOverlay";
 import AddInflationRateForm from "../components/AddInflationRateForm";
-import ColossusChart from "../components/ColossusChart/ColossusChart";
-import SMA from "@/utils/indicators/SMA";
-import { findConsolidationZones } from "@/utils/consolidation-zones";
+import ColossusChart, {
+  CharIndicator,
+} from "../components/ColossusChart/ColossusChart";
+import {
+  CrossOverPoint,
+  findConsolidationZones,
+  hasTurnedDown,
+  TimePoint,
+} from "@/utils/consolidation-zones";
 import { mapCandlesToOhlc } from "@/utils/mappers";
-import TradingMarketBar, { TradingMarket } from "../components/TradingMarketBar";
+import TradingMarketBar, {
+  TradingMarket,
+} from "../components/TradingMarketBar";
 
 const ColossusChartContainer = ({
   pair,
@@ -121,23 +137,192 @@ const ColossusChartContainer = ({
         ? shortCorridors.filter((c) => c.candles.length > 0)
         : []),
     ],
-    [corridors, shortCorridors, settings.showLongCorridors, settings.showShortCorridors],
+    [
+      corridors,
+      shortCorridors,
+      settings.showLongCorridors,
+      settings.showShortCorridors,
+    ],
   );
 
-  const smaData = useMemo(() => {
-    const sma = new SMA(10);
-    return candles
-      // .slice(0, candles.length - 14)
-      .map((candle) => {
-        sma.update(Number(candle.close));
-        return { time: candle.time as import("lightweight-charts").UTCTimestamp, value: sma.result };
-      })
-      .filter((d) => d.value > 0);
+  const { sma10, sma50, ema9, crossOvers, turnDowns, atr14 } = useMemo(() => {
+    const sma10 = new SMA(10);
+    const sma50 = new SMA(50);
+    const ema9 = new EMA(9);
+    const atr14 = new ATR(14);
+
+    const sma10Sequence: TimePoint[] = [];
+    const sma50Sequence: TimePoint[] = [];
+    const ema9Sequence: TimePoint[] = [];
+    const atr14Sequence: TimePoint[] = [];
+
+    const crossOvers: CrossOverPoint[] = [];
+    const turnDowns: TimePoint[] = [];
+
+    candles.forEach((candle, index) => {
+      sma10.add(Number(candle.close));
+      sma50.add(Number(candle.close));
+      ema9.add(Number(candle.close));
+      atr14.add({
+        close: Number(candle.close),
+        high: Number(candle.high),
+        low: Number(candle.low),
+      });
+
+      if (
+        sma10.getResult() !== null &&
+        sma50.getResult() !== null &&
+        ema9.getResult() !== null
+      ) {
+        sma10Sequence[index] = {
+          time: candle.time as UTCTimestamp,
+          value: sma10.getResult(),
+        };
+        sma50Sequence[index] = {
+          time: candle.time as UTCTimestamp,
+          value: sma50.getResult(),
+        };
+        ema9Sequence[index] = {
+          time: candle.time as UTCTimestamp,
+          value: ema9.getResult(),
+        };
+        atr14Sequence[index] = {
+          time: candle.time as UTCTimestamp,
+          value: atr14.getResult(),
+        };
+      }
+
+      if (
+        index > 0 &&
+        sma50Sequence[index - 1] &&
+        sma50Sequence[index - 1].value
+      ) {
+        const crossedOver = hasCrossedOver(
+          ema9Sequence[index - 1].value,
+          sma50Sequence[index - 1].value,
+          ema9Sequence[index].value,
+          sma50Sequence[index].value,
+        );
+        const crossedUnder = hasCrossedUnder(
+          ema9Sequence[index - 1].value,
+          sma50Sequence[index - 1].value,
+          ema9Sequence[index].value,
+          sma50Sequence[index].value,
+        );
+
+        const turnedDown = hasTurnedDown(ema9Sequence);
+
+        if (turnedDown) {
+          turnDowns.push({
+            time: candle.time as UTCTimestamp,
+            value: ema9Sequence[index].value,
+          });
+        }
+
+        if (crossedOver) {
+          crossOvers.push({
+            time: candle.time as UTCTimestamp,
+            value: ema9Sequence[index].value,
+            type: TradingSignal.BULLISH,
+          });
+        }
+        if (crossedUnder) {
+          crossOvers.push({
+            time: candle.time as UTCTimestamp,
+            value: ema9Sequence[index].value,
+            type: TradingSignal.BEARISH,
+          });
+        }
+      }
+    });
+
+    return {
+      sma10: sma10Sequence,
+      sma50: sma50Sequence,
+      ema9: ema9Sequence,
+      atr14: atr14Sequence,
+      crossOvers,
+      turnDowns,
+    };
   }, [candles]);
 
+  ////
+  const { inflationEma9, inflationSma20 } = useMemo(() => {
+    const sma20 = new SMA(18);
+    const ema9 = new EMA(9);
+
+    const ema9Sequence: TimePoint[] = [];
+    const sma20Sequence: TimePoint[] = [];
+
+    inflationRates.forEach((inflationRecord) => {
+      ema9.add(Number(inflationRecord.inflationIndex));
+      sma20.add(Number(inflationRecord.inflationIndex));
+
+      if (ema9.getResult() && sma20.getResult()) {
+        ema9Sequence.push({
+          time: inflationRecord.date as unknown as UTCTimestamp,
+          value: ema9.getResult(),
+        });
+        sma20Sequence.push({
+          time: inflationRecord.date as unknown as UTCTimestamp,
+          value: sma20.getResult(),
+        });
+      }
+    });
+
+    return {
+      inflationEma9: ema9Sequence,
+      inflationSma20: sma20Sequence,
+    };
+  }, [inflationRates]);
+
+  ////
+
+  const chartIndicators = useMemo(() => {
+    const indicators = [];
+
+    indicators.push({
+      color: "#f59e42",
+      lineWidth: 2 as LineWidth,
+      points: compact(sma10),
+    });
+
+    indicators.push({
+      color: "#42f59e",
+      lineWidth: 3 as LineWidth,
+      points: compact(sma50),
+    });
+
+    indicators.push({
+      color: "#9e42f5",
+      lineWidth: 3 as LineWidth,
+      points: compact(ema9),
+    });
+
+    return indicators;
+  }, [sma10, sma50, ema9]);
+
+  const inflationIndicators: CharIndicator[] = useMemo(() => {
+    const indicators = [];
+
+    indicators.push({
+      color: "#42f59e",
+      lineWidth: 2 as LineWidth,
+      points: compact(inflationSma20),
+    });
+
+    indicators.push({
+      color: "#9e42f5",
+      lineWidth: 3 as LineWidth,
+      points: compact(inflationEma9),
+    });
+
+    return indicators;
+  }, [inflationEma9, inflationSma20]);
+
   const consolidationZones = useMemo(
-    () => findConsolidationZones(smaData),
-    [smaData],
+    () => findConsolidationZones(compact(sma10)),
+    [sma10],
   );
 
   const consolidationZoneAdvices = useMemo<TradeSetupAdvice[]>(
@@ -154,10 +339,7 @@ const ColossusChartContainer = ({
   );
 
   const mergedGridSetupAdvices = useMemo(
-    () => [
-      ...gridSetupAdvices, 
-      ...consolidationZoneAdvices
-    ],
+    () => [...gridSetupAdvices, ...consolidationZoneAdvices],
     [gridSetupAdvices, consolidationZoneAdvices],
   );
 
@@ -174,13 +356,11 @@ const ColossusChartContainer = ({
           bearish: "rgba(240, 117, 174, 0.2)",
         }}
         inflationRates={inflationRates}
+        inflationIndicators={inflationIndicators}
         chartColors={CHART_COLORS}
-        smaData={smaData}
+        chartIndicators={chartIndicators}
       />
-      <ChartSettings
-        settings={settings}
-        onChange={setSettings}
-      />
+      <ChartSettings settings={settings} onChange={setSettings} />
       <ChartProfitOverlay
         totalLongProfit={totalLongProfit}
         totalShortProfit={totalShortProfit}
