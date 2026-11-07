@@ -30,6 +30,7 @@ import {
   ChartCorridorColors,
 } from "./types";
 import { forEach } from "lodash";
+import type { ChartSettingsState } from "../ChartSettings";
 
 export type {
   ChartNewsSentiment,
@@ -56,6 +57,9 @@ const ColossusChart = ({
   chartColors,
   // smaData,
   chartIndicators,
+  macd,
+  balanceDynamic,
+  settings,
 }: {
   candles: OhlcData[];
   newsSentiments: ChartNewsSentiment[];
@@ -67,9 +71,22 @@ const ColossusChart = ({
   chartColors: ChartColors;
   // smaData?: { time: UTCTimestamp; value: number }[];
   chartIndicators?: CharIndicator[];
+  macd?: {
+    macd: CharIndicator[];
+    signal: CharIndicator[];
+  };
+  balanceDynamic?: { time: UTCTimestamp; value: number }[];
+  settings: ChartSettingsState;
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const hasInflationPaneData = settings.showInflationRatesPanel;
+  const hasMacdPaneData = settings.showMacdPanel;
+  const hasBalancePaneData = settings.showBalanceDynamicPanel;
+  const secondaryPaneCount =
+    Number(hasInflationPaneData) +
+    Number(hasMacdPaneData) +
+    Number(hasBalancePaneData);
 
   // Handle window resize
   useEffect(() => {
@@ -79,12 +96,24 @@ const ColossusChart = ({
           chartContainerRef.current.clientWidth,
           chartContainerRef.current.clientHeight,
         );
+
+        const mainPane = chartRef.current?.panes()[0];
+        if (mainPane) {
+          mainPane.setHeight(
+            Math.max(
+              chartContainerRef.current!.clientHeight -
+                secondaryPaneCount * 160 -
+                24,
+              320,
+            ),
+          );
+        }
       }
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [secondaryPaneCount]);
 
   // Create and manage chart
   useEffect(() => {
@@ -196,16 +225,26 @@ const ColossusChart = ({
       );
     }
 
-    // Inflation line series in a second pane
-    if (inflationRates.length > 0) {
+    let nextPaneIndex = 1;
+    const inflationPaneIndex = hasInflationPaneData ? nextPaneIndex++ : undefined;
+    const macdPaneIndex = hasMacdPaneData ? nextPaneIndex++ : undefined;
+    const balancePaneIndex = hasBalancePaneData ? nextPaneIndex : undefined;
+
+    if (hasInflationPaneData && inflationPaneIndex !== undefined) {
       const lineSeries = chart.addSeries(
         LineSeries,
         {
           color: "#f5c542",
           lineWidth: 2,
+          title: "Inflation",
         },
-        1,
+        inflationPaneIndex,
       );
+
+      const inflationPane = chart.panes()[inflationPaneIndex];
+      if (inflationPane) {
+        inflationPane.setHeight(160);
+      }
 
       const inflationData = inflationRates.map((r) => ({
         time: getChartTime(r.date),
@@ -214,31 +253,104 @@ const ColossusChart = ({
 
       lineSeries.setData(inflationData);
 
-      ///
       forEach(inflationIndicators, (indicator) => {
         const inflationIndicatorData = indicator.points.map((r) => ({
           time: getChartTime(r.time),
           value: r.value,
         }));
 
-        const lineSeries = chart.addSeries(
+        const inflationIndicatorSeries = chart.addSeries(
           LineSeries,
           {
             color: indicator.color,
             lineWidth: indicator.lineWidth,
             priceLineVisible: false,
             lastValueVisible: false,
+            title:
+              indicator.color === "#42f59e" ? "Inflation SMA" : "Inflation EMA",
           },
-          1,
+          inflationPaneIndex,
         );
-        console.log(inflationIndicatorData);
-        lineSeries.setData(inflationIndicatorData);
+        inflationIndicatorSeries.setData(inflationIndicatorData);
       });
-      ///
+    }
 
-      const inflationPane = chart.panes()[1];
-      // inflationPane.moveTo(0);
-      inflationPane.setHeight(200);
+    if (hasMacdPaneData && macdPaneIndex !== undefined) {
+      const zeroLineSeries = chart.addSeries(
+        LineSeries,
+        {
+          color: "#ffffff",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "Zero",
+        },
+        macdPaneIndex,
+      );
+
+      zeroLineSeries.setData(
+        candles.map((candle) => ({
+          time: candle.time as UTCTimestamp,
+          value: 0,
+        })),
+      );
+
+      forEach(macd?.macd ?? [], (indicator) => {
+        const macdSeries = chart.addSeries(
+          LineSeries,
+          {
+            color: indicator.color,
+            lineWidth: indicator.lineWidth,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            title: "MACD",
+          },
+          macdPaneIndex,
+        );
+        macdSeries.setData(indicator.points);
+      });
+
+      forEach(macd?.signal ?? [], (indicator) => {
+        const signalSeries = chart.addSeries(
+          LineSeries,
+          {
+            color: indicator.color,
+            lineWidth: indicator.lineWidth,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            title: "Signal",
+          },
+          macdPaneIndex,
+        );
+        signalSeries.setData(indicator.points);
+      });
+
+      const macdPane = chart.panes()[macdPaneIndex];
+      if (macdPane) {
+        macdPane.setHeight(160);
+      }
+    }
+
+    if (hasBalancePaneData && balancePaneIndex !== undefined) {
+      const balanceSeries = chart.addSeries(
+        LineSeries,
+        {
+          color: "#00d9ff",
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          title: "Balance",
+        },
+        balancePaneIndex,
+      );
+
+      balanceSeries.setData(balanceDynamic ?? []);
+
+      const balancePane = chart.panes()[balancePaneIndex];
+      if (balancePane) {
+        balancePane.setHeight(160);
+      }
     }
 
     forEach(chartIndicators, (indicator) => {
@@ -271,6 +383,13 @@ const ColossusChart = ({
     inflationRates,
     chartColors,
     chartIndicators,
+    inflationIndicators,
+    macd,
+    balanceDynamic,
+    settings,
+    hasInflationPaneData,
+    hasMacdPaneData,
+    hasBalancePaneData,
   ]);
 
   return (

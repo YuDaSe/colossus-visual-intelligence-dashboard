@@ -24,8 +24,8 @@ const TradingMarketBar = ({
     <div
       style={{
         position: "absolute",
-        top: 0,
-        left: 0,
+        top: 12,
+        left: 12,
         zIndex: 10,
         display: "flex",
         alignItems: "center",

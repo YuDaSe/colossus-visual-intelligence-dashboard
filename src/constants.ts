@@ -60,4 +60,4 @@ export const CANDLE_INTERVALS_SECONDS: Record<string, number> = {
   [CANDLE_INTERVALS.ONE_MONTH]: 30 * 24 * 60 * 60, // Approximation
 };
 
-export const DEFAULT_CANDLES_DAYS = 200;
+export const DEFAULT_CANDLES_DAYS = 365;

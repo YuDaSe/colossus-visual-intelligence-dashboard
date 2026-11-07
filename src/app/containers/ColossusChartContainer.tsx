@@ -8,6 +8,7 @@ import {
   hasCrossedUnder,
   ATR,
   TradingSignal,
+  MACD,
 } from "trading-signals";
 import { LineWidth, OhlcData, UTCTimestamp } from "lightweight-charts";
 import { compact, reduce } from "lodash";
@@ -17,7 +18,7 @@ import { TradeSetupAdvice } from "../data/database/db-services/grid-setup-advice
 import { InflationRate } from "../data/database/db-services/us-inflation-rate.service";
 import { runHardcoreBackTest } from "@/utils/grid-backtest";
 import { adviceCorridorReducer } from "@/utils/advice-corridor-reducer";
-import ChartSettings, { ChartSettingsState } from "../components/ChartSettings";
+import ChartSettings from "../components/ChartSettings";
 import ChartProfitOverlay from "../components/ChartProfitOverlay";
 import AddInflationRateForm from "../components/AddInflationRateForm";
 import ColossusChart, {
@@ -33,6 +34,7 @@ import { mapCandlesToOhlc } from "@/utils/mappers";
 import TradingMarketBar, {
   TradingMarket,
 } from "../components/TradingMarketBar";
+import { useColossusChartSettings } from "./useColossusChartSettings";
 
 const ColossusChartContainer = ({
   pair,
@@ -41,6 +43,7 @@ const ColossusChartContainer = ({
   newsSentiments,
   gridSetupAdvices,
   inflationRates,
+  balanceDynamic,
 }: {
   pair: string;
   interval: string;
@@ -48,16 +51,11 @@ const ColossusChartContainer = ({
   newsSentiments: NewsSentiment[];
   gridSetupAdvices: TradeSetupAdvice[];
   inflationRates: InflationRate[];
+  balanceDynamic?: { time: number; value: number }[];
 }) => {
   const [market, setMarket] = useState<TradingMarket>({ pair, interval });
   const [candles, setCandles] = useState(initialCandles);
-  const [settings, setSettings] = useState<ChartSettingsState>({
-    initialLongBudget: 1000,
-    initialShortBudget: 1000,
-    leverage: 1,
-    showShortCorridors: true,
-    showLongCorridors: true,
-  });
+  const { settings, setSettings } = useColossusChartSettings();
 
   useEffect(() => {
     const loadCandles = async () => {
@@ -145,8 +143,7 @@ const ColossusChartContainer = ({
     ],
   );
 
-  const { sma10, sma50, ema9, crossOvers, turnDowns, atr14 } = useMemo(() => {
-    const sma10 = new SMA(10);
+  const { sma50, ema9, crossOvers, turnDowns, atr14 } = useMemo(() => {
     const sma50 = new SMA(50);
     const ema9 = new EMA(9);
     const atr14 = new ATR(14);
@@ -160,7 +157,6 @@ const ColossusChartContainer = ({
     const turnDowns: TimePoint[] = [];
 
     candles.forEach((candle, index) => {
-      sma10.add(Number(candle.close));
       sma50.add(Number(candle.close));
       ema9.add(Number(candle.close));
       atr14.add({
@@ -169,26 +165,26 @@ const ColossusChartContainer = ({
         low: Number(candle.low),
       });
 
+      const sma50Value = sma50.getResult();
+      const ema9Value = ema9.getResult();
+      const atr14Value = atr14.getResult();
+
       if (
-        sma10.getResult() !== null &&
-        sma50.getResult() !== null &&
-        ema9.getResult() !== null
+        sma50Value !== null &&
+        ema9Value !== null &&
+        atr14Value !== null
       ) {
-        sma10Sequence[index] = {
-          time: candle.time as UTCTimestamp,
-          value: sma10.getResult(),
-        };
         sma50Sequence[index] = {
           time: candle.time as UTCTimestamp,
-          value: sma50.getResult(),
+          value: sma50Value,
         };
         ema9Sequence[index] = {
           time: candle.time as UTCTimestamp,
-          value: ema9.getResult(),
+          value: ema9Value,
         };
         atr14Sequence[index] = {
           time: candle.time as UTCTimestamp,
-          value: atr14.getResult(),
+          value: atr14Value,
         };
       }
 
@@ -258,14 +254,17 @@ const ColossusChartContainer = ({
       ema9.add(Number(inflationRecord.inflationIndex));
       sma20.add(Number(inflationRecord.inflationIndex));
 
-      if (ema9.getResult() && sma20.getResult()) {
+      const ema9Value = ema9.getResult();
+      const sma20Value = sma20.getResult();
+
+      if (ema9Value !== null && sma20Value !== null) {
         ema9Sequence.push({
           time: inflationRecord.date as unknown as UTCTimestamp,
-          value: ema9.getResult(),
+          value: ema9Value,
         });
         sma20Sequence.push({
           time: inflationRecord.date as unknown as UTCTimestamp,
-          value: sma20.getResult(),
+          value: sma20Value,
         });
       }
     });
@@ -282,12 +281,6 @@ const ColossusChartContainer = ({
     const indicators = [];
 
     indicators.push({
-      color: "#f59e42",
-      lineWidth: 2 as LineWidth,
-      points: compact(sma10),
-    });
-
-    indicators.push({
       color: "#42f59e",
       lineWidth: 3 as LineWidth,
       points: compact(sma50),
@@ -300,7 +293,7 @@ const ColossusChartContainer = ({
     });
 
     return indicators;
-  }, [sma10, sma50, ema9]);
+  }, [sma50, ema9]);
 
   const inflationIndicators: CharIndicator[] = useMemo(() => {
     const indicators = [];
@@ -320,9 +313,57 @@ const ColossusChartContainer = ({
     return indicators;
   }, [inflationEma9, inflationSma20]);
 
+  const macd = useMemo(() => {
+    const macdIndicator = new MACD(new EMA(50), new EMA(100), new EMA(9));
+
+    const macdLine: TimePoint[] = [];
+    const signalLine: TimePoint[] = [];
+
+    candles.forEach((candle) => {
+      const result = macdIndicator.update(Number(candle.close), false);
+
+      if (result) {
+        macdLine.push({
+          time: candle.time as UTCTimestamp,
+          value: result.macd,
+        });
+        signalLine.push({
+          time: candle.time as UTCTimestamp,
+          value: result.signal,
+        });
+      }
+    });
+
+    return {
+      macd: [
+        {
+          color: "#f59e42",
+          lineWidth: 2 as LineWidth,
+          points: macdLine,
+        },
+      ],
+      signal: [
+        {
+          color: "#42f59e",
+          lineWidth: 2 as LineWidth,
+          points: signalLine,
+        },
+      ],
+    };
+  }, [candles]);
+
+  const balanceDynamicSeries = useMemo(
+    () =>
+      (balanceDynamic ?? []).map((point) => ({
+        time: point.time as UTCTimestamp,
+        value: point.value,
+      })),
+    [balanceDynamic],
+  );
+
   const consolidationZones = useMemo(
-    () => findConsolidationZones(compact(sma10)),
-    [sma10],
+    () => findConsolidationZones(compact(ema9)),
+    [ema9],
   );
 
   const consolidationZoneAdvices = useMemo<TradeSetupAdvice[]>(
@@ -343,14 +384,19 @@ const ColossusChartContainer = ({
     [gridSetupAdvices, consolidationZoneAdvices],
   );
 
+
+
   return (
     <div style={{ position: "relative", height: "100vh", width: "100vw" }}>
       <TradingMarketBar market={market} onChange={setMarket} />
       <ColossusChart
         candles={candles}
-        newsSentiments={newsSentiments}
-        gridSetupAdvices={mergedGridSetupAdvices}
-        gridSetups={gridSetups}
+        newsSentiments={settings.showNewsSentiments ? newsSentiments : []}
+        gridSetupAdvices={
+          settings.showGridSetupAdvices ? mergedGridSetupAdvices : []
+        }
+        gridSetups={settings.showGridSetups ? gridSetups : []}
+
         gridSetupsColors={{
           bullish: "rgba(100, 255, 150, 0.1)",
           bearish: "rgba(240, 117, 174, 0.2)",
@@ -359,8 +405,10 @@ const ColossusChartContainer = ({
         inflationIndicators={inflationIndicators}
         chartColors={CHART_COLORS}
         chartIndicators={chartIndicators}
+        macd={macd}
+        balanceDynamic={balanceDynamicSeries}
+        settings={settings}
       />
-      <ChartSettings settings={settings} onChange={setSettings} />
       <ChartProfitOverlay
         totalLongProfit={totalLongProfit}
         totalShortProfit={totalShortProfit}
@@ -369,7 +417,20 @@ const ColossusChartContainer = ({
         initialLongInvestment={settings.initialLongBudget}
         initialShortInvestment={settings.initialShortBudget}
       />
-      <AddInflationRateForm />
+      <div
+        style={{
+          position: "absolute",
+          top: 90,
+          left: 12,
+          zIndex: 10,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        <ChartSettings settings={settings} onChange={setSettings} embedded />
+        <AddInflationRateForm embedded />
+      </div>
     </div>
   );
 };
