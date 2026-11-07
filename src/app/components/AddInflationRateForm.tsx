@@ -19,30 +19,29 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const panelStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 320,
-  left: 12,
-  zIndex: 10,
-  background: "rgba(19, 23, 34, 0.92)",
-  borderRadius: 8,
-  padding: "14px 18px",
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  color: "#ccc",
-  fontSize: 13,
-  minWidth: 210,
-  boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
-  border: "1px solid rgba(255,255,255,0.08)",
-};
-
-const AddInflationRateForm = () => {
+const AddInflationRateForm = ({ embedded = false }: { embedded?: boolean }) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(defaultDate);
   const [rate, setRate] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const panelStyle: React.CSSProperties = {
+    position: embedded ? "static" : "absolute",
+    top: 320,
+    left: 12,
+    zIndex: 10,
+    background: "rgba(19, 23, 34, 0.92)",
+    borderRadius: 8,
+    padding: "14px 18px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    color: "#ccc",
+    fontSize: 13,
+    minWidth: 210,
+    boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

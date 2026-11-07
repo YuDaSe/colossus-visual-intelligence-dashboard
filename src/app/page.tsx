@@ -2,6 +2,7 @@ import ColossusChartContainer from "./containers/ColossusChartContainer";
 import { connectToDb } from "./data/database/utils/with-db";
 import CandlesDataService from "./data/database/db-services/candles-data-service";
 import { OhlcData } from "lightweight-charts";
+import balanceDynamicJson from "../../back-test-output/balance-dynamic.json";
 import NewsAggregationService, {
 } from "./data/database/db-services/news-aggregation-service";
 import GridSetupAdviceService from "./data/database/db-services/grid-setup-advice.service";
@@ -43,6 +44,15 @@ export default async function Home() {
   const chartCandles: OhlcData[] = mapCandlesToOhlc(candles);
   const chartGridSetupAdvices = mapGridSetupAdvicesToChart(gridSetupAdvices);
 
+  const balanceDynamic = Object.values(
+    (balanceDynamicJson as { time: number; value: number }[]).reduce<
+      Record<number, { time: number; value: number }>
+    >((acc, item) => {
+      acc[item.time] = item;
+      return acc;
+    }, {}),
+  ).sort((a, b) => a.time - b.time);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <ColossusChartContainer
@@ -52,6 +62,7 @@ export default async function Home() {
         newsSentiments={newsAggregations}
         gridSetupAdvices={chartGridSetupAdvices}
         inflationRates={inflationRates}
+        balanceDynamic={balanceDynamic}
       />
     </div>
   );
